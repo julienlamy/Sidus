@@ -1,10 +1,11 @@
 SET storage_engine=InnoDB;
+SET NAMES 'utf8' COLLATE 'utf8_general_ci';
 
-CREATE TABLE sd_object_type (
+CREATE TABLE IF NOT EXISTS sd_object_type (
 	id INTEGER unsigned NOT NULL AUTO_INCREMENT,
 	parent_id INTEGER unsigned NOT NULL,
 
-	type_name VARCHAR(20) NOT NULL,
+	type_name VARCHAR(30) NOT NULL,
 	class_name VARCHAR(30) NOT NULL DEFAULT 'Node',
 	class_path VARCHAR(60) NOT NULL DEFAULT 'lib/nodes/class.node_generic.php',
 	description TEXT,
@@ -13,7 +14,7 @@ CREATE TABLE sd_object_type (
 	FOREIGN KEY (parent_id) REFERENCES sd_object_type(id)
 );
 
-CREATE TABLE sd_allowed_object_type(
+CREATE TABLE IF NOT EXISTS sd_allowed_object_type(
 	type_id INTEGER unsigned NOT NULL,
 	allowed_type_id INTEGER unsigned NOT NULL,
 
@@ -28,30 +29,32 @@ CREATE TABLE IF NOT EXISTS sd_node (
 	role_id BIGINT(20) unsigned NOT NULL,
 	owner_id BIGINT(20) unsigned NOT NULL,
 
-	is_read BOOLEAN DEFAULT 0,
-	is_add BOOLEAN DEFAULT 0,
-	is_edit BOOLEAN DEFAULT 0,
-	is_delete BOOLEAN DEFAULT 0,
+	can_read BOOLEAN DEFAULT 0,
+	can_add BOOLEAN DEFAULT 0,
+	can_edit BOOLEAN DEFAULT 0,
+	can_delete BOOLEAN DEFAULT 0,
 	is_admin BOOLEAN DEFAULT 1,
 
 	PRIMARY KEY (id),
 	FOREIGN KEY (parent_id) REFERENCES sd_node(id),
 	FOREIGN KEY (role_id) REFERENCES sd_node(id),
-	FOREIGN KEY (owner_id) REFERENCES sd_node(id),
-) DEFAULT CHARSET=ascii;
+	FOREIGN KEY (owner_id) REFERENCES sd_node(id)
+);
 
 CREATE TABLE IF NOT EXISTS sd_version (
 	node_id BIGINT(20) unsigned NOT NULL,
 	lang VARCHAR(4),
-	version_date TIMESTAMP,
+	revision_number INTEGER NOT NULL,
 	object_id BIGINT(20) unsigned NOT NULL,
 
-	PRIMARY KEY (node_id, lang, version_date, object_id)
-) DEFAULT CHARSET=ascii;
+	revision_date TIMESTAMP,
+
+	PRIMARY KEY (node_id, lang, revision_number, object_id)
+);
 
 CREATE TABLE IF NOT EXISTS sd_object (
 	id BIGINT(20) unsigned NOT NULL AUTO_INCREMENT,
-	type_id INTEGER NOT NULL,
+	type_id INTEGER unsigned NOT NULL,
 
 	created_by BIGINT(20),
 	created_at TIMESTAMP,
@@ -59,10 +62,10 @@ CREATE TABLE IF NOT EXISTS sd_object (
 	modified_at TIMESTAMP,
 
 	PRIMARY KEY (id),
-	FOREIGN KEY (type_id) REFERENCES sd_object_type(id),
-) DEFAULT CHARSET=ascii;
+	FOREIGN KEY (type_id) REFERENCES sd_object_type(id)
+);
 
-CREATE TABLE sd_info(
+CREATE TABLE IF NOT EXISTS sd_info(
 	object_id BIGINT(20) unsigned NOT NULL,
 
 	title VARCHAR(256),
@@ -72,25 +75,25 @@ CREATE TABLE sd_info(
 
 	PRIMARY KEY (object_id),
 	FOREIGN KEY (object_id) REFERENCES sd_object(id)
-) DEFAULT CHARSET=utf8;
+);
 
 CREATE TABLE IF NOT EXISTS sd_permission (
 	object_id BIGINT(20) unsigned NOT NULL,
 	entity_id BIGINT(20) unsigned NOT NULL,
 
 	is_inverse BOOLEAN DEFAULT 0,
-	is_read BOOLEAN DEFAULT 0,
-	is_add BOOLEAN DEFAULT 0,
-	is_edit BOOLEAN DEFAULT 0,
-	is_delete BOOLEAN DEFAULT 0,
+	can_read BOOLEAN DEFAULT 0,
+	can_add BOOLEAN DEFAULT 0,
+	can_edit BOOLEAN DEFAULT 0,
+	can_delete BOOLEAN DEFAULT 0,
 	is_admin BOOLEAN DEFAULT 0,
 
 	PRIMARY KEY (object_id),
 	FOREIGN KEY (object_id) REFERENCES sd_object(id),
 	FOREIGN KEY (entity_id) REFERENCES sd_node(id)
-) DEFAULT CHARSET=utf8;
+);
 
-CREATE TABLE sd_user(
+CREATE TABLE IF NOT EXISTS sd_user(
 	object_id BIGINT(20) unsigned NOT NULL,
 	username VARCHAR(32),
 	password VARCHAR(40),
@@ -101,9 +104,9 @@ CREATE TABLE sd_user(
 	PRIMARY KEY (object_id),
 	FOREIGN KEY (object_id) REFERENCES sd_object(id),
 	UNIQUE (username)
-) DEFAULT CHARSET=utf8;
+);
 
-CREATE TABLE sd_session(
+CREATE TABLE IF NOT EXISTS sd_session(
 	object_id BIGINT(20) unsigned NOT NULL,
 
 	cookie VARCHAR(40),
@@ -114,7 +117,7 @@ CREATE TABLE sd_session(
 
 	PRIMARY KEY (object_id),
 	FOREIGN KEY (object_id) REFERENCES sd_object(id)
-) DEFAULT CHARSET=utf8;
+);
 
 
 /*
