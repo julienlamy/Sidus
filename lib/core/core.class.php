@@ -2,6 +2,11 @@
 
 namespace Sidus;
 
+require_once REAL_PATH.'lib/core/collection.class.php';
+require_once REAL_PATH.'lib/core/controller.class.php';
+require_once REAL_PATH.'lib/core/core.class.php';
+require_once REAL_PATH.'lib/core/type.class.php';
+
 /**
  * Global core class.
  * This object is used with all classes
@@ -30,7 +35,6 @@ class Core{
 	function __construct(){
 		global $_core;
 		$_core = $this;
-		require_once REAL_PATH.'lib/nodes/node.class.php';
 		$this->load_db();
 		$this->load_config();
 		$this->load_date();
@@ -50,7 +54,8 @@ class Core{
 		if($_core){
 			return $_core;
 		}
-		return new self();
+		$_core = new self();
+		return $_core;
 	}
 
 	/**
@@ -85,7 +90,7 @@ class Core{
 	 * the client. Still, you can you the prototype as a generic controller.
 	 */
 	protected function load_controller(){
-		require_once REAL_PATH.'includes/class.proto_controller.php';
+		
 		$this->controller = new proto_controller();
 	}
 
@@ -158,7 +163,8 @@ class Core{
 	 * This is a special function to cache nodes in PHP memory
 	 * Preventing DB overload
 	 */
-	public function node($id=null){
+	public static function getNode($id = null, $){
+		$core = self::getInstance();
 		if($id == null){
 			return $this->controller->current_node();
 		}
