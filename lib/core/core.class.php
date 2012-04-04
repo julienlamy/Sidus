@@ -2,11 +2,6 @@
 
 namespace Sidus;
 
-require_once REAL_PATH.'lib/core/collection.class.php';
-require_once REAL_PATH.'lib/core/controller.class.php';
-require_once REAL_PATH.'lib/core/core.class.php';
-require_once REAL_PATH.'lib/core/type.class.php';
-
 /**
  * Global core class.
  * This object is used with all classes
@@ -163,7 +158,7 @@ class Core{
 	 * This is a special function to cache nodes in PHP memory
 	 * Preventing DB overload
 	 */
-	public static function getNode($id = null, $){
+	public static function getNode($id = null, $lang = null, $version = null){
 		$core = self::getInstance();
 		if($id == null){
 			return $this->controller->current_node();

@@ -49,7 +49,9 @@ CREATE TABLE IF NOT EXISTS sd_version (
 
 	revision_date TIMESTAMP,
 
-	PRIMARY KEY (node_id, lang, revision_number, object_id)
+	PRIMARY KEY (node_id, lang, revision_number, object_id),
+	FOREIGN KEY (node_id) REFERENCES sd_node(id),
+	FOREIGN KEY (object_id) REFERENCES sd_object(id)
 );
 
 CREATE TABLE IF NOT EXISTS sd_object (
