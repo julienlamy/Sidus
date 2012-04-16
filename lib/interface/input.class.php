@@ -1,6 +1,6 @@
 <?php
 
-class ui_input{
+class Input{
 
 	protected $name; //SQL column name of the field
 	protected $label; //Label to be displayed in the HTML

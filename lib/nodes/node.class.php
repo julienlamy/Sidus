@@ -47,7 +47,7 @@ class Node{
 //			exit;
 //		}
 //
-//		$this->auths=$this->get_authorizations(); //Getting all the authorizations
+//		$this->auths=$this->getAuthorizations(); //Getting all the authorizations
 //
 //		//Check ownership on current node
 //		//
@@ -61,7 +61,7 @@ class Node{
 //			} else {//else this means the ownership is corrupted by heritage
 //				$this->auths['ownership']=false;
 //				if(_core()->user()!=null){//If user is already initialized
-//					if(_core()->user()->is_connected()){//if the user is connected
+//					if(_core()->user()->isConnected()){//if the user is connected
 //						if($this->is_owner(_core()->user())){//This means the user is really the owner of the current node
 //							$this->auths['ownership']=true;
 //							$this->auths['read']=true;
@@ -102,19 +102,19 @@ class Node{
 
 		//If this node has inherited permissions, return the parent node's permissions
 		if($this->properties['inherit_permissions']){
-			$auths=$this->get_parent()->get_authorizations();
+			$auths=$this->getParent()->getAuthorizations();
 			//If the user is not initialized, returns current permissions
 			if(_core()->user()==null){
 				return $auths;
 			}
 			//If the user is not connected, returns the permissions right now.
-			if(!_core()->user()->is_connected()){
+			if(!_core()->user()->isConnected()){
 				return $auths;
 			}
 			//Checking for each permissions/subsriptions ONLY FOR ONWERSHIP OR MASTERSHIP (+positive filter)
-			foreach($this->get_permissions() as $perm){
+			foreach($this->getPermissions() as $perm){
 				//If user is in permission or in group's permission
-				if(_core()->user()->is_in_group($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
+				if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
 					if(!$perm['b_inverse']){//If permissions are not inversed (meaning they are normal)
 						//Checking individual permissions
 						if($perm['b_ownership']){
@@ -147,14 +147,14 @@ class Node{
 			return $auths;
 		}
 		//If the user is not connected, returns the permissions right now.
-		if(!_core()->user()->is_connected()){
+		if(!_core()->user()->isConnected()){
 			return $auths;
 		}
 
 		//Checking for each permissions/subsriptions (+positive filter)
-		foreach($this->get_permissions() as $perm){
+		foreach($this->getPermissions() as $perm){
 			//If user is in permission or in group's permission
-			if(_core()->user()->is_in_group($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
+			if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
 				if(!$perm['b_inverse']){//If permissions are not inversed (meaning they are normal)
 					//Checking individual permissions
 					if($perm['b_read'])
@@ -175,9 +175,9 @@ class Node{
 		}
 
 		//Checking for each permissions/subsriptions (-NEGATIVE filter)
-		foreach($this->get_permissions() as $perm){
+		foreach($this->getPermissions() as $perm){
 			//If user is in permission or in group's permission
-			if(_core()->user()->is_in_group($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
+			if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
 				if($perm['b_inverse']){//If permissions ARE INVERSED
 					//Checking individual permissions
 					if($perm['b_read'])
@@ -194,8 +194,8 @@ class Node{
 		}
 
 		//For the parents, we check the mastership of the node, which is a "transmissive" property
-		if(!$this->is_root()){
-			if($this->get_parent()->get_auth('mastership')){
+		if(!$this->isRoot()){
+			if($this->getParent()->getAuth('mastership')){
 				$auths['mastership']=true;
 			}
 		}
@@ -219,7 +219,7 @@ class Node{
 		if($this==$entity){
 			return true;
 		}
-		foreach($this->get_permissions() as $perm){
+		foreach($this->getPermissions() as $perm){
 			if($perm['entity_id']==$entity->get('node_id') && $perm['b_ownership'] && !$perm['b_inverse']){
 				return true;
 			}
@@ -233,7 +233,7 @@ class Node{
 	 */
 	public function getOwners(){
 		$owners=array();
-		foreach($this->get_permissions() as $perm){
+		foreach($this->getPermissions() as $perm){
 			if($perm['b_ownership'] && !$perm['b_inverse']){
 				if($perm['entity_id']==$this->properties['node_id']){//If the current node is self-owned (user node)
 					$owners[]=$this;
@@ -249,7 +249,7 @@ class Node{
 	 * Get first owner of the node
 	 */
 	public function getOwner(){
-		$owners=$this->get_owners();
+		$owners=$this->getOwners();
 		if(count($owners) > 0){
 			return $owners[0];
 		}
@@ -270,7 +270,7 @@ class Node{
 	 */
 	public function getInheritedNode(){
 		if($this->properties['inherit_permissions']){
-			return $this->get_parent()->get_inherited_node();
+			return $this->getParent()->getInheritedNode();
 		}
 		return $this;
 	}
@@ -286,7 +286,7 @@ class Node{
 		$throw_error=true;
 		if(!$this->auths['read'] && !in_array($key, $this->public)){//If user cannot read and key not public
 			if($throw_error){
-				$this->add_read_error();
+				$this->addReadError();
 				return false;
 			}
 			//Theses values are specific to the case where you want to display something instead of an error
@@ -353,7 +353,7 @@ class Node{
 	 */
 	public final function getAuth($key){
 		if(!array_key_exists($key, $this->auths)){//Test array key
-			_core()->user()->add_error(11);
+			_core()->user()->addError(11);
 			return false;
 		}
 		return (bool)$this->auths[$key];
@@ -363,12 +363,12 @@ class Node{
 	 * Add a new node of this type
 	 */
 	public static function addNode(sys_config $config, node_generic $parent_node, $type_name){
-		if(!$parent_node->get_auth('add')){
+		if(!$parent_node->getAuth('add')){
 			$config->error()->add(13);
 			return false;
 		}
 
-		$tmp=$parent_node->get_allowed_child_types(); //Retrieve all allowed child types for the parent node
+		$tmp=$parent_node->getAllowedChildTypes(); //Retrieve all allowed child types for the parent node
 		if(!in_array($type_name, $tmp)){ //If this type of node is not permitted inside parent
 			$config->error()->add(19);
 			return false;
@@ -378,7 +378,7 @@ class Node{
 		$config->db()->beginTransaction(); //Start transaction to enable rollback
 		
 		//Inserting basic informations on node
-		$query='INSERT INTO node_generic (parent_node_id,type_name,creator,index_num) VALUES ('.$parent_node->get('node_id').',\''.$type_name.'\',\''.$config->secureString($config->user()).'\','.$parent_node->get_next_child_index().')';
+		$query='INSERT INTO node_generic (parent_node_id,type_name,creator,index_num) VALUES ('.$parent_node->get('node_id').',\''.$type_name.'\',\''.$config->secureString($config->user()).'\','.$parent_node->getNextChildIndex().')';
 		if(!$config->db()->exec($query)){
 			$config->error()->add(30, 3);
 			$config->db()->rollbackTransaction();
@@ -399,7 +399,7 @@ class Node{
 			$config->db()->rollbackTransaction();
 			return false;
 		}
-		if($config->user()->is_connected()){
+		if($config->user()->isConnected()){
 			$query='INSERT INTO node_permission (entity_id,node_id,b_ownership) VALUES ('.$config->user()->get('node_id').','.$id.',1)';
 			if(!$config->db()->exec($query)){
 				$config->error()->add(30, 3);
@@ -418,13 +418,13 @@ class Node{
 	
 	public static function get_add_form($action='',$method='post'){
 		require_once REAL_PATH.'includes/interface/class.ui_form.php';
-		require_once REAL_PATH.'includes/interface/class.ui_input.php';
+		require_once REAL_PATH.'includes/interface/class.Input.php';
 		require_once REAL_PATH.'includes/interface/class.ui_textarea.php';
 		$form=new ui_form($action,$method);
-		$form->set_prefix('add_');
-		$form->add(new ui_input('title', 'Title :', 'text'));
+		$form->setPrefix('add_');
+		$form->add(new Input('title', 'Title :', 'text'));
 		$form->add(new ui_textarea('content', 'Content :'));
-		$form->add(new ui_input('tags', 'Tags :', 'text', ''));
+		$form->add(new Input('tags', 'Tags :', 'text', ''));
 		return $form;
 	}
 	
@@ -440,7 +440,7 @@ class Node{
 	 * Get the parent of the node
 	 */
 	public function getParent(){
-		if($this->is_root()){
+		if($this->isRoot()){
 			return $this;
 		}
 		return _core()->node($this->properties['parent_node_id']);
@@ -455,7 +455,7 @@ class Node{
 		if($this->properties['node_id'] != $this->properties['parent_node_id']){
 			$tmp=$this;
 			do{
-				$tmp=$tmp->get_parent();
+				$tmp=$tmp->getParent();
 				$result[]=$tmp;
 			} while($tmp->get('node_id') != $tmp->get('parent_node_id'));
 		}
@@ -470,7 +470,7 @@ class Node{
 	 */
 	public function getChilds($order_by='index_num', $order='ASC', $limit=null, $types=array()){
 		if(!$this->auths['read']){
-			$this->add_read_error();
+			$this->addReadError();
 			return false;
 		}
 		$result=array();
@@ -488,10 +488,10 @@ class Node{
 		foreach($types as $type){//For each type of node we want
 			if(substr($type, 0, 1)=='-'){
 				$type=substr($type,1);
-				if(_core()->is_type($type)){//If the type exists
+				if(_core()->isType($type)){//If the type exists
 					$and_conditions[]='type_name!=\''.$type.'\''; //We add a condition
 				}
-			} elseif(_core()->is_type($type)){//If the type exists
+			} elseif(_core()->isType($type)){//If the type exists
 				$or_conditions[]='type_name=\''.$type.'\''; //We add a condition
 			}
 		}
@@ -517,7 +517,7 @@ class Node{
 	 * Return the localized name of the type of this node.
 	 */
 	public final function getType(){
-		return _core()->get_localized_type($this->get('type_name'));
+		return _core()->getLocalizedType($this->get('type_name'));
 	}
 
 	/**
@@ -527,7 +527,7 @@ class Node{
 	 */
 	public function getAllowedTypes(){
 		if(!($this->auths['read'] || $this->auths['add'] || $this->auths['edit'])){
-			$this->add_read_error();
+			$this->addReadError();
 			return false;
 		}
 		$query='SELECT a.allowed_type FROM node_generic AS n, allowed_type AS a WHERE n.type_name=a.type_name AND n.node_id='.$this->properties['parent_node_id'];
@@ -544,7 +544,7 @@ class Node{
 	 */
 	public function getAllowedChildTypes(){
 		if(!($this->auths['read'] || $this->auths['add'] || $this->auths['edit'])){
-			$this->add_read_error();
+			$this->addReadError();
 			return false;
 		}
 		$query='SELECT a.allowed_type FROM node_generic AS n, allowed_type AS a WHERE n.type_name=a.type_name AND n.node_id='.$this->properties['node_id'];
@@ -562,12 +562,12 @@ class Node{
 	public function delete($transaction=true){
 		//Check permissions
 		if(!$this->auths['delete']){
-			$this->add_del_error();
+			$this->addDelError();
 			return false;
 		}
 
 		//Some elements can't be deleted
-		if($this->is_root() || in_array($this->properties['type_name'],array('users','groups'))){
+		if($this->isRoot() || in_array($this->properties['type_name'],array('users','groups'))){
 			_core()->error()->add(18);
 			return false;
 		}
@@ -579,7 +579,7 @@ class Node{
 			_core()->db()->beginTransaction();
 		}
 
-		$tmp=$this->get_childs(); //Get all childs
+		$tmp=$this->getChildren(); //Get all childs
 		if(count($tmp) > 0){//If there is any
 			foreach($tmp as $child){//Try to delete each child
 				if(!$child->delete(false)){//Just continue on success
@@ -593,7 +593,7 @@ class Node{
 		}
 		
 
-		$tmp=$this->delete_more($transaction);
+		$tmp=$this->deleteMore($transaction);
 		if(!$tmp){
 			_core()->error()->add(0);//TODO: Throw some error
 			if($transaction){
@@ -630,7 +630,7 @@ class Node{
 		return true;
 	}
 	
-	protected function delete_more($transaction){
+	protected function deleteMore($transaction){
 		$query='DELETE FROM node_info WHERE node_id='.$this->properties['node_id'];
 		if(!_core()->db()->exec($query)){
 			return false;
@@ -646,7 +646,7 @@ class Node{
 	 */
 	public function edit($forms=null){
 		if(!$this->auths['edit']){//Test permissions
-			$this->add_edit_error();
+			$this->addEditError();
 			return false;
 		}
 		
@@ -659,7 +659,7 @@ class Node{
 		}
 		
 		foreach($forms as $form){
-			if(!$form->is_active()){
+			if(!$form->isActive()){
 				break;
 			}
 			if(!$form->validate()){
@@ -672,18 +672,18 @@ class Node{
 			 */
 			$list=array();
 			if($form->get('title')){
-				$list[]='title=\''._core()->secureString($form->get_value('title')).'\'';
+				$list[]='title=\''._core()->secureString($form->getValue('title')).'\'';
 			}
 			if($form->get('index_num')){
-				$list[]='index_num='.(int)$form->get_value('index_num');
+				$list[]='index_num='.(int)$form->getValue('index_num');
 			}
 			foreach(array('read','add','edit','delete') as $p){
 				if($form->get('anonymous.'.$p)){
-					$list[]='anonymous_'.$p.'='.(int)(bool)$form->get_value('anonymous.'.$p);
+					$list[]='anonymous_'.$p.'='.(int)(bool)$form->getValue('anonymous.'.$p);
 				}
 			}
-			if(!$this->is_root() && $form->get('inherit_permissions')){
-				$list[]='inherit_permissions='.(int)(bool)$form->get_value('inherit_permissions');
+			if(!$this->isRoot() && $form->get('inherit_permissions')){
+				$list[]='inherit_permissions='.(int)(bool)$form->getValue('inherit_permissions');
 			}
 			if(count($list)>0){
 				$query='UPDATE node_generic SET '.implode(', ', $list).' WHERE node_id='.$this->properties['node_id'];
@@ -696,10 +696,10 @@ class Node{
 			//Editing node_info
 			$list=array();
 			if($form->get('content')){
-				$list[]='content=\''._core()->secureString($form->get_value('content'),true).'\'';
+				$list[]='content=\''._core()->secureString($form->getValue('content'),true).'\'';
 			}
 			if($form->get('tags')){
-				$list[]='tags=\''._core()->secureString($form->get_value('tags')).'\'';
+				$list[]='tags=\''._core()->secureString($form->getValue('tags')).'\'';
 			}
 			if($form->get('modification')){
 				$list[]='modification='._core()->date()->now();
@@ -716,11 +716,11 @@ class Node{
 			 * EDITING NODE'S PERMISSIONS
 			 */
 			//Save all changes on acive permissions
-			foreach($this->get_permissions() as $permission){
+			foreach($this->getPermissions() as $permission){
 				$list=array();
 				foreach(array('read','add','edit','delete','ownership','mastership','inverse') as $perm){
 					if($form->get('entity_'.$permission['entity_id'].'.'.$perm)){
-						$list[]='b_'.$perm.'='.(int)(bool)$form->get_value('entity_'.$permission['entity_id'].'.'.$perm);
+						$list[]='b_'.$perm.'='.(int)(bool)$form->getValue('entity_'.$permission['entity_id'].'.'.$perm);
 					}
 				}
 				if(count($list)>0){
@@ -737,9 +737,9 @@ class Node{
 			 */
 			if(isset($_POST['add_new_entity'])){
 				$query='INSERT INTO node_permission (entity_id,node_id,b_read,b_add,b_edit,b_delete,b_ownership,b_mastership,b_inverse) VALUES (';
-				$query.=(int)$form->get_value('new_entity_id').','.$this->properties['node_id'];
+				$query.=(int)$form->getValue('new_entity_id').','.$this->properties['node_id'];
 				foreach(array('read','add','edit','delete','ownership','mastership','inverse') as $perm){
-					$query.=','.(int)$form->get_value('new.'.$perm);
+					$query.=','.(int)$form->getValue('new.'.$perm);
 				}
 				$query.=')';
 				if(!_core()->db()->exec($query)){
@@ -766,27 +766,27 @@ class Node{
 	 */
 	protected function initContentForm(){
 		if(!$this->auths['edit']){
-			//$this->add_edit_error();
+			//$this->addEditError();
 			return false;
 		}
 		//Form initialization
 		require_once REAL_PATH.'includes/interface/class.ui_form.php';
 		$form=new ui_form();
 		//Prefix used for all the inputs names to avoid duplicate ids
-		$form->set_prefix('n['.$this->properties['node_id'].']['); //Don't change this !!!
+		$form->setPrefix('n['.$this->properties['node_id'].']['); //Don't change this !!!
 		$form->setSuffix(']');
-		$form->set_name('node_'.$this->properties['node_id'].'_content');//And this also.
+		$form->setName('node_'.$this->properties['node_id'].'_content');//And this also.
 		//
 		//Basic HTML inputs for most of the fields
-		require_once REAL_PATH.'includes/interface/class.ui_input.php';
+		require_once REAL_PATH.'includes/interface/class.Input.php';
 		require_once REAL_PATH.'includes/interface/class.ui_textarea.php';
 		
 		/**
 		 * The following lines are all the basics information a node should contain
 		 */
-		$form->add(new ui_input('title', _core()->localize('Title').' : ', 'text', $this->get('title'), true));
+		$form->add(new Input('title', _core()->localize('Title').' : ', 'text', $this->get('title'), true));
 		$form->add(new ui_textarea('content', _core()->localize('Content').' : ', false, $this->get('content')));
-		$form->add(new ui_input('tags', _core()->localize('Tags').' : ', 'text', $this->get('tags')));
+		$form->add(new Input('tags', _core()->localize('Tags').' : ', 'text', $this->get('tags')));
 
 		$this->form['content']=$form;
 		return $form;
@@ -798,7 +798,7 @@ class Node{
 	 */
 	protected function initPermissionsForm(){
 		if(!$this->auths['edit']){
-			//$this->add_edit_error();
+			//$this->addEditError();
 			return false;
 		}
 		if(!($this->auths['ownership'] || $this->auths['mastership'])){//The user can't modify permissions if he doesn't have ownership or mastership
@@ -810,28 +810,28 @@ class Node{
 		require_once REAL_PATH.'includes/interface/class.ui_form.php';
 		$form=new ui_form();
 		//Prefix used for all the inputs names to avoid duplicate ids
-		$form->set_prefix('n'.$this->properties['node_id'].'_'); //Don't change this !!!
-		$form->set_name('node_'.$this->properties['node_id'].'_permissions');//And this also.
+		$form->setPrefix('n'.$this->properties['node_id'].'_'); //Don't change this !!!
+		$form->setName('node_'.$this->properties['node_id'].'_permissions');//And this also.
 		//
 		//Basic HTML inputs for most of the fields
-		require_once REAL_PATH.'includes/interface/class.ui_input.php';
-		require_once REAL_PATH.'includes/interface/class.ui_checkbox.php';
-		require_once REAL_PATH.'includes/interface/class.ui_select.php';
+		require_once REAL_PATH.'includes/interface/class.Input.php';
+		require_once REAL_PATH.'includes/interface/class.Checkbox.php';
+		require_once REAL_PATH.'includes/interface/class.Select.php';
 		
-		$form->add(new ui_checkbox('inherit_permissions', _core()->localize('Inherit permissions').' : ', (int)$this->get('inherit_permissions')));
-		$form->add(new ui_checkbox('anonymous.read', null, (int)$this->get('anonymous_read')));
-		$form->add(new ui_checkbox('anonymous.add', null, (int)$this->get('anonymous_add')));
-		$form->add(new ui_checkbox('anonymous.edit', null, (int)$this->get('anonymous_edit')));
-		$form->add(new ui_checkbox('anonymous.delete', null, (int)$this->get('anonymous_delete')));
+		$form->add(new Checkbox('inherit_permissions', _core()->localize('Inherit permissions').' : ', (int)$this->get('inherit_permissions')));
+		$form->add(new Checkbox('anonymous.read', null, (int)$this->get('anonymous_read')));
+		$form->add(new Checkbox('anonymous.add', null, (int)$this->get('anonymous_add')));
+		$form->add(new Checkbox('anonymous.edit', null, (int)$this->get('anonymous_edit')));
+		$form->add(new Checkbox('anonymous.delete', null, (int)$this->get('anonymous_delete')));
 		
 		/*
 		 * Already registered entities
 		 */
 		$active_entities=array();
-		foreach($this->get_permissions() as $permission){
+		foreach($this->getPermissions() as $permission){
 			$label=$permission['entity_id'].' - '._core()->node($permission['entity_id']);
 			foreach(array('read','add','edit','delete','ownership','mastership','inverse') as $perm){
-				$form->add(new ui_checkbox('entity_'.$permission['entity_id'].'.'.$perm, null, $permission['b_'.$perm]));
+				$form->add(new Checkbox('entity_'.$permission['entity_id'].'.'.$perm, null, $permission['b_'.$perm]));
 			}
 			$active_entities[$permission['entity_id']]=$label;
 		}
@@ -848,9 +848,9 @@ class Node{
 			}
 		}
 		if(count($inactive_entities)>0){
-			$form->add(new ui_select('new_entity_id', _core()->localize('New').' : ', $inactive_entities));
+			$form->add(new Select('new_entity_id', _core()->localize('New').' : ', $inactive_entities));
 			foreach(array('read','add','edit','delete','ownership','mastership','inverse') as $perm){
-				$form->add(new ui_checkbox('new.'.$perm, null));
+				$form->add(new Checkbox('new.'.$perm, null));
 			}
 		}
 		
@@ -864,7 +864,7 @@ class Node{
 	 */
 	protected final function initPositionForm(){
 		if(!$this->auths['edit']){
-			//$this->add_edit_error();
+			//$this->addEditError();
 			return false;
 		}
 		
@@ -872,15 +872,15 @@ class Node{
 		require_once REAL_PATH.'includes/interface/class.ui_form.php';
 		$form=new ui_form();
 		//Prefix used for all the inputs names to avoid duplicate ids
-		$form->set_prefix('n'.$this->properties['node_id'].'_'); //Don't change this !!!
-		$form->set_name('node_'.$this->properties['node_id'].'_position');//And this also.
+		$form->setPrefix('n'.$this->properties['node_id'].'_'); //Don't change this !!!
+		$form->setName('node_'.$this->properties['node_id'].'_position');//And this also.
 		
-		require_once REAL_PATH.'includes/interface/class.ui_input.php';
-		require_once REAL_PATH.'includes/interface/class.ui_select.php';
+		require_once REAL_PATH.'includes/interface/class.Input.php';
+		require_once REAL_PATH.'includes/interface/class.Select.php';
 		
 		//TODO for move and copy
-		$possible_parents=array($this->get('parent_node_id', false)=>$this->get_parent());
-		$form->add(new ui_select('parent_node_id', _core()->localize('Parent node').' : ', $possible_parents, $this->get('parent_node_id')));
+		$possible_parents=array($this->get('parent_node_id', false)=>$this->getParent());
+		$form->add(new Select('parent_node_id', _core()->localize('Parent node').' : ', $possible_parents, $this->get('parent_node_id')));
 		
 		$this->form['position']=$form;
 		return $form;
@@ -891,9 +891,9 @@ class Node{
 	 */
 	public function form($key=null){
 		if($key===null){//If no key is passed, we return an array of forms
-			$this->init_content_form();
-			$this->init_permissions_form();
-			$this->init_position_form();
+			$this->initContentForm();
+			$this->initPermissionsForm();
+			$this->initPositionForm();
 			return $this->form;
 		}
 		
@@ -901,7 +901,7 @@ class Node{
 			return $this->form[$key];
 		}
 		
-		$method='init_'.$key.'_form';
+		$method='init'.$key.'Form';
 		if(method_exists($this, $method)){//try to init the form if it doesn't already exists
 			call_user_func(array($this, $method));
 			if(isset($this->form[$key])){//If a key is specified, return the corresponding form
@@ -951,23 +951,23 @@ class Node{
 	//Everything beyond that line is used to generate content
 	
 	public function button($size=ICON_SMALL, $action='', $attributes=array()){
-		return _core()->generate_button_from_node($this, $size, $action, $attributes);
+		return _core()->generateButtonFromNode($this, $size, $action, $attributes);
 	}
 	
 	public function actionButton($action, $title=null, $size=ICON_SMALL, $attributes=array()){
-		return _core()->generate_action_button_from_node($this, $action, $title, $size, $attributes);
+		return _core()->generateActionButtonFromNode($this, $action, $title, $size, $attributes);
 	}
 
 	/**
 	 * Getting the thumbnail
 	 */
 	public function getThumb(){
-		if($this->get_auth('read')){
-			$icons=$this->get_childs('index_num', 'ASC', null, array('icon'));
+		if($this->getAuth('read')){
+			$icons=$this->getChildren('index_num', 'ASC', null, array('icon'));
 			if(count($icons) > 0){//If there are icons
 				foreach($icons as $icon){//We take the first one we are authorized to see
-					if($icon->get_auth('read')){
-						return $icon->get_thumb(); //Return the file if found
+					if($icon->getAuth('read')){
+						return $icon->getThumb(); //Return the file if found
 					}
 				}
 			}
@@ -977,15 +977,15 @@ class Node{
 	}
 
 	public function getHtmlThumb($size=ICON_SMALL){
-		if($this->get_auth('read')){
-			return _core()->generate_thumbnail($this->get_thumb(), $size, $this);
+		if($this->getAuth('read')){
+			return _core()->generateThumbnail($this->getThumb(), $size, $this);
 		}
-		return _core()->generate_thumbnail(_core()->get_thumb('secured'), $size, $this);
+		return _core()->generateThumbnail(_core()->getThumb('secured'), $size, $this);
 	}
 
 	public function getHtmlContent(){
 		if(!$this->auths['read']){//Test permissions
-			$this->add_read_error();
+			$this->addReadError();
 			return false;
 		}
 		$string='<h1>'.$this.'</h1>';

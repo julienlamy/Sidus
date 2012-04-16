@@ -1,6 +1,6 @@
 <?php
 
-class ui_menu{
+class Menu{
 	protected $board;
 	protected $elements=array();
 	protected $attributes=array();

@@ -1,6 +1,6 @@
 <?php
 
-class ui_checkbox extends ui_input{
+class Checkbox extends Input{
 	protected $array=false;
 	protected $displayed_name;
 	protected $subname='1';

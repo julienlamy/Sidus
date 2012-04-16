@@ -51,62 +51,62 @@ class framework_install{
 
 		$this->form=new ui_form();
 
-		$this->form->add(new ui_select('database_type', 'Type : ', array('mysql'=>'MySQL', 'sqlite3'=>'SQLite 3.X'), 'mysql'));
+		$this->form->add(new Select('database_type', 'Type : ', array('mysql'=>'MySQL', 'sqlite3'=>'SQLite 3.X'), 'mysql'));
 		$this->form->get('database_type')->set_html_attributes('onchange="select_options()"');
-		if($this->form->get_value('database_type') == 'mysql'){
+		if($this->form->getValue('database_type') == 'mysql'){
 			$b=true;
 		}else{
 			$b=false;
 		}
-		$this->form->add(new ui_input('database_host', 'Host:', 'text', 'localhost', $b));
-		$this->form->add(new ui_input('database_username', 'Username:', 'text', 'root', $b));
-		$this->form->add(new ui_input('database_password', 'Password:', 'password'));
-		$this->form->add(new ui_input('database_port', 'Port:', 'text', '3306', $b));
+		$this->form->add(new Input('database_host', 'Host:', 'text', 'localhost', $b));
+		$this->form->add(new Input('database_username', 'Username:', 'text', 'root', $b));
+		$this->form->add(new Input('database_password', 'Password:', 'password'));
+		$this->form->add(new Input('database_port', 'Port:', 'text', '3306', $b));
 		$this->form->get('database_port')->set_regexp('/^\d*$/');
-		$this->form->add(new ui_input('database_schema', 'Database:', 'text', 'aboard', $b));
-		$this->form->add(new ui_input('username', 'Username:', 'text', 'Admin', true));
-		$this->form->add(new ui_input('email', 'Email:', 'text', 'admin@'.$_SERVER['SERVER_NAME'], true));
-		$this->form->get('email')->set_regexp('/\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b/');
+		$this->form->add(new Input('database_schema', 'Database:', 'text', 'aboard', $b));
+		$this->form->add(new Input('username', 'Username:', 'text', 'Admin', true));
+		$this->form->add(new Input('email', 'Email:', 'text', 'admin@'.$_SERVER['SERVER_NAME'], true));
+		$this->form->get('email')->setRegexp('/\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b/');
 		$this->form->get('email')->setErrorMessage('This is not a correct email address.');
-		$this->form->add(new ui_input('temp1', 'Password:', 'password'));
-		$this->form->add(new ui_input('temp2', 'Confirm:', 'password'));
-		$this->form->add(new ui_input('sha1', null, 'hidden', sha1(''), true));
+		$this->form->add(new Input('temp1', 'Password:', 'password'));
+		$this->form->add(new Input('temp2', 'Confirm:', 'password'));
+		$this->form->add(new Input('sha1', null, 'hidden', sha1(''), true));
 		$this->form->get('sha1')->setErrorMessage('You need to enter a password.');
 	}
 	
 	public function install(){
 		if($this->form->validate()){//Essentials informations
-			if($this->form->get_value('database_type') == 'mysql'){//If MYSQL
-				if($this->mysql_install()){
+			if($this->form->getValue('database_type') == 'mysql'){//If MYSQL
+				if($this->mysqlInstall()){
 					$this->install_error=false;
 				}
-			}elseif($this->form->get_value('database_type') == 'sqlite3'){//If SQLite 3
-				if($this->sqlite3_install()){
+			}elseif($this->form->getValue('database_type') == 'sqlite3'){//If SQLite 3
+				if($this->sqlite3Install()){
 					$this->install_error=false;
 				}
 			}else{
-				$this->errors[]='The following database: "'.$this->form->get_value('database_type').'" is not yet supported.';
+				$this->errors[]='The following database: "'.$this->form->getValue('database_type').'" is not yet supported.';
 			}
 		}
 	}
 
 
-	protected function generic_install($script){
+	protected function genericInstall($script){
 		$script=explode(';', $script);
 		foreach($script as $query){
 			$query=trim($query);
 			if($query != ''){
 				if(!$this->db->exec($query)){
-					$this->errors[]='Error during installation: '.$this->db->get_last_error();
-					$this->generic_uninstall(file_get_contents(REAL_PATH.'includes/installation/uninstall.sql'));
+					$this->errors[]='Error during installation: '.$this->db->getLastError();
+					$this->genericUninstall(file_get_contents(REAL_PATH.'includes/installation/uninstall.sql'));
 					return false;
 				}
 			}
 		}
-		$query='UPDATE node_generic SET title=\''.$this->db->secure_input($this->form->get_value('username')).'\', creator=\''.$this->db->secure_input($this->form->get_value('username')).'\' WHERE node_id=7';
+		$query='UPDATE node_generic SET title=\''.$this->db->secureInput($this->form->getValue('username')).'\', creator=\''.$this->db->secureInput($this->form->getValue('username')).'\' WHERE node_id=7';
 		if(!$this->db->exec($query)){
-			$this->errors[]='Error during installation: '.$this->db->get_last_error();
-			$this->generic_uninstall(file_get_contents(REAL_PATH.'includes/installation/uninstall.sql'));
+			$this->errors[]='Error during installation: '.$this->db->getLastError();
+			$this->genericUninstall(file_get_contents(REAL_PATH.'includes/installation/uninstall.sql'));
 			return false;
 		}
 		
@@ -119,22 +119,22 @@ class framework_install{
 			$i++;
 		}
 		$salt=sha1($salt);
-		$query='UPDATE node_user SET username=\''.$this->db->secure_input($this->form->get_value('username')).'\', email=\''.$this->db->secure_input($this->form->get_value('email')).'\', password=\''.sha1($this->form->get_value('sha1').$salt).'\', salt=\''.$salt.'\' WHERE node_id=7';
+		$query='UPDATE node_user SET username=\''.$this->db->secureInput($this->form->getValue('username')).'\', email=\''.$this->db->secureInput($this->form->getValue('email')).'\', password=\''.sha1($this->form->getValue('sha1').$salt).'\', salt=\''.$salt.'\' WHERE node_id=7';
 		if(!$this->db->exec($query)){
-			$this->errors[]='Error during installation: '.$this->db->get_last_error();
-			$this->generic_uninstall(file_get_contents(REAL_PATH.'includes/installation/uninstall.sql'));
+			$this->errors[]='Error during installation: '.$this->db->getLastError();
+			$this->genericUninstall(file_get_contents(REAL_PATH.'includes/installation/uninstall.sql'));
 			return false;
 		}
-		$query='UPDATE node_generic SET creator=\''.$this->db->secure_input($this->form->get_value('username')).'\' WHERE node_id=1 OR node_id=2 OR node_id=3 OR node_id=4';
+		$query='UPDATE node_generic SET creator=\''.$this->db->secureInput($this->form->getValue('username')).'\' WHERE node_id=1 OR node_id=2 OR node_id=3 OR node_id=4';
 		if(!$this->db->exec($query)){
-			$this->errors[]='Error during installation: '.$this->db->get_last_error();
-			$this->generic_uninstall(file_get_contents(REAL_PATH.'includes/installation/uninstall.sql'));
+			$this->errors[]='Error during installation: '.$this->db->getLastError();
+			$this->genericUninstall(file_get_contents(REAL_PATH.'includes/installation/uninstall.sql'));
 			return false;
 		}
 		return true;
 	}
 
-	protected function generic_uninstall($script){
+	protected function genericUninstall($script){
 		$script=explode(';', $script);
 		foreach($script as $query){
 			$query=trim($query);
@@ -148,19 +148,19 @@ class framework_install{
 		$this->errors[]='Error during installation, aborting.';
 	}
 
-	protected function mysql_install(){
-		if($this->form->get_value('database_host') === false || $this->form->get_value('database_username') === false || $this->form->get_value('database_password') === false || $this->form->get_value('database_port') === false || $this->form->get_value('database_schema') === false){
+	protected function mysqlInstall(){
+		if($this->form->getValue('database_host') === false || $this->form->getValue('database_username') === false || $this->form->getValue('database_password') === false || $this->form->getValue('database_port') === false || $this->form->getValue('database_schema') === false){
 			$this->errors[]='Error ! Some values are missing.';
 			return false;
 		}
 		require_once REAL_PATH.'includes/class.db_mysql.php';
-		$db_tmp=sys_database::test($this->form->get_value('database_host').':'.$this->form->get_value('database_port'), $this->form->get_value('database_username'), $this->form->get_value('database_password'), $this->form->get_value('database_schema'));
+		$db_tmp=sys_database::test($this->form->getValue('database_host').':'.$this->form->getValue('database_port'), $this->form->getValue('database_username'), $this->form->getValue('database_password'), $this->form->getValue('database_schema'));
 		if($db_tmp !== true){
 			$this->errors[]='Error ! Can\'t access the database: '.$db_tmp;
 			return false;
 		}
-		$this->db=new sys_database($this->form->get_value('database_host').':'.$this->form->get_value('database_port'), $this->form->get_value('database_username'), $this->form->get_value('database_password'), $this->form->get_value('database_schema'));
-		$success=$this->generic_install(file_get_contents(REAL_PATH.'includes/installation/mysql.sql'));
+		$this->db=new sys_database($this->form->getValue('database_host').':'.$this->form->getValue('database_port'), $this->form->getValue('database_username'), $this->form->getValue('database_password'), $this->form->getValue('database_schema'));
+		$success=$this->genericInstall(file_get_contents(REAL_PATH.'includes/installation/mysql.sql'));
 		if(!$success){
 			$this->errors[]='Error ! There was a problem during installation.';
 			return false;
@@ -170,18 +170,18 @@ class framework_install{
 				"\n".
 				'[database]'."\n".
 				'type=mysql'."\n".
-				'host='.$this->form->get_value('database_host')."\n".
-				'port='.$this->form->get_value('database_port')."\n".
-				'username='.$this->form->get_value('database_username')."\n".
-				'password='.$this->form->get_value('database_password')."\n".
-				'schema='.$this->form->get_value('database_schema')."\n")){
+				'host="'.addcslashes($this->form->getValue('database_host'), '"').'"'."\n".
+				'port='.$this->form->getValue('database_port')."\n".
+				'username="'.addcslashes($this->form->getValue('database_username'), '"').'"'."\n".
+				'password="'.addcslashes($this->form->getValue('database_password'), '"').'"'."\n".
+				'schema='.$this->form->getValue('database_schema')."\n")){
 			$this->errors[]='Error ! Can\'t create the config file: '.$this->config_path;
 			return false;
 		}
 		return true;
 	}
 
-	protected function sqlite3_install(){
+	protected function sqlite3Install(){
 		require_once REAL_PATH.'includes/class.db_sqlite3.php';
 		$db_path='secure/sqlite3.database.db';
 		$db_tmp=sys_database::test(REAL_PATH.$db_path);
@@ -190,7 +190,7 @@ class framework_install{
 			return false;
 		}
 		$this->db=new sys_database(REAL_PATH.$db_path);
-		$success=$this->generic_install($this->convertToSQLite(file_get_contents(REAL_PATH.'includes/installation/mysql.sql')));
+		$success=$this->genericInstall($this->convertToSQLite(file_get_contents(REAL_PATH.'includes/installation/mysql.sql')));
 		if(!$success){
 			return false;
 		}

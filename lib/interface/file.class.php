@@ -1,8 +1,8 @@
 <?php
 
-require_once 'class.ui_input.php';
+require_once 'class.Input.php';
 
-class ui_file extends ui_input{
+class File extends Input{
 
 	protected $types;
 	protected $dest;

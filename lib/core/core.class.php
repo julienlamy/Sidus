@@ -30,14 +30,14 @@ class Core{
 	function __construct(){
 		global $_core;
 		$_core = $this;
-		$this->load_db();
-		$this->load_config();
-		$this->load_date();
-		$this->load_error();
-		$this->load_session();
-		$this->load_user();
-		$this->load_plugins();
-		$this->load_controller();
+		$this->loadDb();
+		$this->loadConfig();
+		$this->loadDate();
+		$this->loadError();
+		$this->loadSession();
+		$this->loadUser();
+		$this->loadPlugins();
+		$this->loadController();
 	}
 
 	public function __invoke(){
@@ -56,7 +56,7 @@ class Core{
 	/**
 	 * Load the database abstraction class from settings in config.ini
 	 */
-	private function load_db(){
+	private function loadDb(){
 		if(!file_exists(REAL_PATH.'secure/config.ini')){//Check the existence of an existing congig.ini file
 			include REAL_PATH.'install/index.php';
 			exit;
@@ -84,7 +84,7 @@ class Core{
 	 * redirect the user to the right page/view considering the action of
 	 * the client. Still, you can you the prototype as a generic controller.
 	 */
-	protected function load_controller(){
+	protected function loadController(){
 		
 		$this->controller = new proto_controller();
 	}
@@ -93,7 +93,7 @@ class Core{
 	 * TODO !!!!
 	 * A lot of missing config options
 	 */
-	private function load_config(){
+	private function loadConfig(){
 		$query = 'SELECT * FROM node_type';
 		foreach($this->db->getArray($query) as $value){//Loading nodes types and setting the defines
 			$this->nodes_types[$value['type_name']] = $value;
@@ -108,7 +108,7 @@ class Core{
 	/**
 	 * Load the date abstraction class
 	 */
-	private function load_date(){
+	private function loadDate(){
 		require_once REAL_PATH.'includes/class.sys_date.php';
 		$this->date = new sys_date();
 	}
@@ -116,7 +116,7 @@ class Core{
 	/**
 	 * Load the error manager
 	 */
-	private function load_error(){
+	private function loadError(){
 		require_once REAL_PATH.'includes/class.sys_error.php';
 		$this->error = new sys_error();
 	}
@@ -124,7 +124,7 @@ class Core{
 	/**
 	 * Load the session manager from the error manager
 	 */
-	private function load_session(){
+	private function loadSession(){
 		require_once REAL_PATH.'includes/class.sys_session.php';
 		$this->session = new sys_session();
 	}
@@ -132,7 +132,7 @@ class Core{
 	/**
 	 * Load the user handler
 	 */
-	private function load_user(){
+	private function loadUser(){
 		require_once REAL_PATH.'includes/nodes/class.node_user.php';
 		$this->user = new node_user();
 	}
@@ -140,7 +140,7 @@ class Core{
 	/**
 	 * Load the plugins
 	 */
-	private function load_plugins(){
+	private function loadPlugins(){
 		$plugins_folders = REAL_PATH.'plugins/';
 		$dir = dir($plugins_folders);
 		$plugin = readdir($dir->handle);
@@ -175,22 +175,22 @@ class Core{
 			return false;
 		}
 
-		require_once $this->get_class_path($type);
-		$class_name = $this->get_class_name($type);
+		require_once $this->getClassPath($type);
+		$class_name = $this->getClassName($type);
 		$this->nodes[$id] = new $class_name($id); //Dynamic class instanciation and node caching
 		return $this->nodes[$id];
 	}
 
-	public final function get_class_name($type){
-		if(!$this->is_type($type)){
+	public final function getClassName($type){
+		if(!$this->isType($type)){
 			$this->error->add(0, 'Wrong type name !');
 			return false;
 		}
 		return $this->nodes_types[$type]['class_name'];
 	}
 
-	public final function get_class_path($type){
-		if(!$this->is_type($type)){
+	public final function getClassPath($type){
+		if(!$this->isType($type)){
 			$this->error->add(0, 'Wrong type name !');
 			return false;
 		}
@@ -222,7 +222,7 @@ class Core{
 	/**
 	 * Check if a type_name exists
 	 */
-	public final function is_type($type_name){
+	public final function isType($type_name){
 		if(array_key_exists($type_name, $this->nodes_types)){
 			return true;
 		}
@@ -242,19 +242,19 @@ class Core{
 	/**
 	 * Get the localized type of the node
 	 */
-	public final function get_localized_type($type_name){
-		if($this->is_type($type_name)){
+	public final function getLocalizedType($type_name){
+		if($this->isType($type_name)){
 			return $this->localize($type_name);
 		}
 		//TODO Throw error
 		return $this->localize('unknown');
 	}
 
-	public function get_thumb($type_name='generic'){
+	public function getThumb($type_name='generic'){
 		$filename = 'generic.png';
 		$real_path = REAL_PATH;
 		$http_path = HTTP_PATH;
-		$iconsd = $this->user->get_data('icons_directory');
+		$iconsd = $this->user->getData('icons_directory');
 		if(file_exists(REAL_PATH.$iconsd.$type_name.'.png')){
 			$filename = $type_name.'.png';
 		}
@@ -302,17 +302,17 @@ class Core{
 		switch($type){
 			case 'array': return (array)unserialize($value);
 			case 'boolean': return (bool)$value;
-			case 'date' : return $this->secure_text($value); //Check the format
-			case 'datetime' : return $this->secure_text($value); //Check the format
-			case 'email' : return $this->secure_text($value); //Check the format
+			case 'date' : return $this->secureText($value); //Check the format
+			case 'datetime' : return $this->secureText($value); //Check the format
+			case 'email' : return $this->secureText($value); //Check the format
 			case 'float' : return (float)$value;
-			case 'html' : return $this->secure_html($value);
+			case 'html' : return $this->secureHtml($value);
 			case 'integer' : return (int)$value;
 			case 'object': return (object)unserialize($value);
-			case 'text' : return $this->secure_text($value);
-			case 'time' : return $this->secure_text($value); //Check the format
+			case 'text' : return $this->secureText($value);
+			case 'time' : return $this->secureText($value); //Check the format
 			case 'timestamp' : return (int)$value;
-			default : return $this->secure_text($value);
+			default : return $this->secureText($value);
 		}
 	}
 
@@ -344,12 +344,12 @@ class Core{
 
 	public final function secureString($string, $allow_html=false){
 		if($allow_html){
-			return $this->db->secureString($this->secure_html($string));
+			return $this->db->secureString($this->secureHtml($string));
 		}
-		return $this->db->secureString($this->secure_text($string));
+		return $this->db->secureString($this->secureText($string));
 	}
 
-	public final function secure_text($string){
+	public final function secureText($string){
 		return nl2br(htmlspecialchars($string, ENT_COMPAT, 'UTF-8'));
 	}
 
@@ -358,7 +358,7 @@ class Core{
 	 * @param <type> $string
 	 * @return <type>
 	 */
-	public final function secure_html($string){
+	public final function secureHtml($string){
 		return strip_tags($string, $this->get('safe_tags'));
 	}
 
@@ -368,7 +368,7 @@ class Core{
 	 * @param (String) original
 	 * @return (String) secured
 	 */
-	public function secure_display($string){
+	public function secureDisplay($string){
 		return htmlspecialchars($string, ENT_COMPAT, 'UTF-8');
 	}
 
@@ -377,7 +377,7 @@ class Core{
 	 * @param <String> $key
 	 * @return <String>
 	 */
-	public function is_set($key){
+	public function isSett($key){
 		if(array_key_exists($key, $this->infos)){
 			return true;
 		}
@@ -447,7 +447,7 @@ class Core{
 	}
 
 	public function localize($string){
-		$file = REAL_PATH.'includes/localization/general.'.$this->user()->get_data('lang').'.php';
+		$file = REAL_PATH.'includes/localization/general.'.$this->user()->getData('lang').'.php';
 		if(file_exists($file)){
 			include $file;
 			if(isset($local[$string])){//Test with exact case (for accronyms)
@@ -523,7 +523,7 @@ class Core{
 	}
 
 	public static function slugify($string){
-		$text = self::replace_non_ascii('-', $string); // replace non letter or digits by -
+		$text = self::replaceNonAscii('-', $string); // replace non letter or digits by -
 		$text = trim($text, '-');
 		if(function_exists('iconv')){
 			$text = iconv('UTF-8', 'ASCII//TRANSLIT', $text); // transliterate
@@ -536,16 +536,16 @@ class Core{
 		return $text;
 	}
 
-	public static function replace_non_ascii($subject, $replacement){
+	public static function replaceNonAscii($subject, $replacement){
 		return preg_replace('~[^\\pL\d]+~u', $replacement, $subject);
 	}
 
-	public function generate_tags_links(node_generic $node){
+	public function generateTagsLinks(node_generic $node){
 		$str = '';
 		if(!$node->get_auth('read')){
 			return $str;
 		}
-		$tags = $this->replace_non_ascii(' ', $node->get('tags')); // replace non letter or digits by " "
+		$tags = $this->replaceNonAscii(' ', $node->get('tags')); // replace non letter or digits by " "
 		$tags = trim($tags, ' ');
 		$tags = explode(' ', $tags);
 		foreach($tags as $tag){
@@ -556,14 +556,14 @@ class Core{
 		return $str;
 	}
 
-	public function convert_to_text($html, $cut=null){
+	public function convertToText($html, $cut=null){
 		if($cut == null){
 			return html_entity_decode(strip_tags($html));
 		}
 		return $this->summarize(html_entity_decode(strip_tags($html)), $cut);
 	}
 
-	public static final function get_attributes_from_array(array $array){
+	public static final function getAttributesFromArray(array $array){
 		$str = '';
 		foreach($array as $key => $value){
 			if(is_array($value)){

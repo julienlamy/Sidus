@@ -1,8 +1,8 @@
 <?php
 
-require_once 'class.ui_input.php';
+require_once 'class.Input.php';
 
-class ui_select extends ui_input{
+class Select extends Input{
 
 	protected $options=array();
 

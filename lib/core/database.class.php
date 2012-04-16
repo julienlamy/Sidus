@@ -4,7 +4,7 @@ namespace Sidus\Database;
 
 /**
  * Description of database
- *
+ * @todo Rewrite to support PDO
  * @author vincent
  */
 class Database extends \PDO{

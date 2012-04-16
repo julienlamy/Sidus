@@ -1,6 +1,6 @@
 <?php
 
-class ui_form{
+class Form{
 
   protected $inputs=array(); //List of inputs
   protected $order=array(); //Order of the inputs
