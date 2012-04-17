@@ -4,12 +4,18 @@ namespace html;
 class Element extends Collection{
 	
 	protected $element_type;
-	protected $attribute=array();
+	protected $attributes=array();
 	protected $content;
 	
-	static protected $unauthorized_element=array('base','head','html','meta','param','script','style');
-	static protected $authorized_attributes=array('id','class','style','title','dir','lang','xml_lang','accesskey','tabindex');
+	public static protected $unauthorized_element=array('base','head','html','meta','param','script','style');
+	public static protected $authorized_attributes=array('id','class','style','title','dir','lang','xml_lang','accesskey','tabindex');
 	
+	/**
+	 *
+	 * @param string $element_type
+	 * @param string $content
+	 * @throws \InvalidArgumentException 
+	 */
 	public function __construct($element_type,$content=''){
 		if(in_array(strtolower($element_type),$this::$unauthorized_element)){
 			throw new \InvalidArgumentException('Unauthorized element type in Element.class ('.$element_type.')');
