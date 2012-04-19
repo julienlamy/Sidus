@@ -1,4 +1,5 @@
 <?php
+namespace HTML;
 
 class Checkbox extends Input{
 	protected $array=false;

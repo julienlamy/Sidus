@@ -1,5 +1,6 @@
 <?php
-require_once 'class.input.php';
+
+namespace HTML;
 
 class Email extends Input{
 

@@ -1,5 +1,5 @@
 <?php
-namespace Sidus\UI;
+namespace HTML;
 
 class Textarea extends Input{
 

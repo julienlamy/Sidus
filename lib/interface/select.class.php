@@ -1,4 +1,5 @@
 <?php
+namespace HTML;
 
 require_once 'class.Input.php';
 

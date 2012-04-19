@@ -1,4 +1,5 @@
 <?php
+namespace HTML;
 
 class Menu{
 	protected $board;

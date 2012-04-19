@@ -1,5 +1,5 @@
 <?php
-namespace html;
+namespace HTML;
 
 class Input extends Element{
 	

@@ -1,6 +1,6 @@
 <?php
 
-require_once 'class.Input.php';
+namespace HTML;
 
 class File extends Input{
 
