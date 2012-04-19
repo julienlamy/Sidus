@@ -23,5 +23,3 @@ Loader::addPath(REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'interface');
 Loader::addPath(REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'nodes');
 Loader::addPath(REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'properties');
 
-Core::getInstance();
-exit;
