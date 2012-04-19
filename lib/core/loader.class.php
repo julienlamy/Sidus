@@ -68,10 +68,8 @@ abstract class Loader{
 			}
 		}
 		foreach(self::$paths as $path){
-			var_dump($path);
 			foreach(self::$extensions as $extension){
 				$file_path = $path.strtolower($class_name).$extension;
-				var_dump($file_path);
 				if(is_file($file_path)){
 					require_once $file_path;
 					return;
