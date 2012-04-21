@@ -2,16 +2,68 @@
 
 namespace Sidus\Properties;
 
-interface propertyInterface{
+use Sidus\Nodes\Permission;
 
+/**
+ * Common interface for all properties, define an set of rules to exchange vars
+ * from Database to the end user interface.
+ */
+interface propertyInterface {
+
+	/**
+	 * The actual value in the PHP system
+	 * @var mixed
+	 */
 	protected $value;
+
+	/**
+	 * Define if the value has changed from it's original value
+	 * @var boolean
+	 */
 	protected $has_changed = false;
+
+	/**
+	 * Table name in Database
+	 * @var string
+	 */
 	protected $table_name;
+
+	/**
+	 * Column name in Database
+	 * @var string
+	 */
 	protected $column_name;
-	protected $pdo_param;
+
+	/**
+	 * PDO Parameter type used for prepared statements
+	 * @var integer
+	 */
+	protected $pdo_param = \PDO::PARAM_STR;
+
+	/**
+	 * Model name of the property (column name by default)
+	 * @var string
+	 */
 	protected $model_name;
-	protected $input;
-	
+
+	/**
+	 * Class of input that implements the \HTML\InputInterface
+	 * @var class
+	 */
+	protected $input = '\HTML\Input';
+
+	/**
+	 * Needed permission to read the value
+	 * @var type
+	 */
+	protected $read_auth = Permission::READ;
+
+	/**
+	 * Needed permission to write the value
+	 * @var type
+	 */
+	protected $write_auth = Permission::WRITE;
+
 	/**
 	 * Set the value for the first time where $value is a correct PHP type
 	 * @see http://php.net/manual/en/pdo.constants.php Documentation for PDO Params
@@ -41,7 +93,7 @@ interface propertyInterface{
 	 * @return boolean
 	 */
 	public function hasChanged();
-	
+
 	/**
 	 * Reset the hasChanged property to false
 	 * @return null
@@ -66,43 +118,75 @@ interface propertyInterface{
 	 * @return string $value 
 	 */
 	public function __toString();
-	
+
 	/**
 	 * Returns the table name of the property
 	 * @return string $table_name 
 	 */
 	public function getTableName();
-	
+
 	/**
 	 * Returns the column name of the property
 	 * @return string $column_name 
 	 */
 	public function getColumnName();
-	
+
+	/**
+	 * Returns the full column name (with table name) of the property
+	 * @return string ${$table_name.'.'.$column_name}
+	 */
+	public function getFullColumnName();
+
 	/**
 	 * Returns the model name of the property, $column_name by default
 	 * @return string $mode_name 
 	 */
 	public function getModelName();
-	
+
 	/**
 	 * Returns the PDO parameter type of the property
 	 * @return string $value 
 	 */
 	public function getPDOParam();
-	
+
 	/**
 	 * Returns the default input object for forms for this property
 	 * @return string $value 
 	 */
 	public function getInput();
-	
+
 	/**
 	 * Set the default input object for forms for this property
 	 * @param \HTML\Input $input 
 	 */
 	public function setInput(\HTML\Input $input);
-	
+
+	/**
+	 * Get needed permission set to read the value
+	 * @return integer $read_auth
+	 */
+	public function getReadAuth();
+
+	/**
+	 * Get needed permission set to write to value
+	 * @return integer $write_auth
+	 */
+	public function getWriteAuth();
+
+	/**
+	 * Check if permission set can read the value
+	 * @param integer $permission_set
+	 * @return boolean
+	 */
+	public function canRead($permission_set);
+
+	/**
+	 * Check if permission set can write to value
+	 * @param integer $permission_set
+	 * @return boolean
+	 */
+	public function canWrite($permission_set);
+
 }
 
 ?>
