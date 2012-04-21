@@ -1,30 +1,149 @@
 <?php
-namespace Sidus;
 
+namespace Sidus\Nodes;
 
-class Node{
+use Sidus\Core;
+use Sidus\Database;
+
+class Node {
+
 	protected $auths; //Array with the authorizations informations
 	protected $properties; //Node informations (node_id, title, etc...)
-	protected $public=array('node_id', 'parent_node_id'); //Public keys for the get() method
-	protected $single_error=array('read'=>true, 'add'=>true, 'edit'=>true, 'delete'=>true); //This is meant to prevent repeating the same error message
+	protected $public = array('node_id', 'parent_node_id'); //Public keys for the get() method
+	protected $single_error = array('read' => true, 'add' => true, 'edit' => true, 'delete' => true); //This is meant to prevent repeating the same error message
 	protected $perms; //Array containing the permissions for this node
-	protected $form=array(); //The form to edit the content of the node
-	protected $autosave=true;
-	
-	public $id;
-	public $parent_id;
-	public $object_id;
-	public $type_name;
-	public $lang;
-	public $version_id;
-	public $created_by;
-	public $created_at;
-	public $updated_by;
-	public $updated_at;
-	public $perm;
-	public $auths;
-	
-	
+	protected $form = array(); //The form to edit the content of the node
+	protected $autosave = true;
+	protected $select_statement;
+	protected $insert_statement;
+	protected $delete_statement;
+
+	public function __construct(){
+
+	}
+
+	public function __call($name, $arguments){
+		return Core::$name($this, $arguments);
+	}
+
+	public function __destruct(){
+		if($this->autosave){
+			$this->save();
+		}
+	}
+
+	public function save($new = false){
+		if(!$this->id || $new){
+			$this->saveNew();
+		}
+		$to_save = array();
+		foreach($this->properties as $property){
+			if(!$property->hasChanged()){
+				continue;
+			}
+			if(!isset($to_save[$property->getTableName()])){
+				$to_save[$property->getTableName()] = array();
+			}
+			$to_save[$property->getTableName()][$property->getColumnName()] = $property;
+		}
+		$db = Database::getInstance();
+		$db->beginTransaction();
+		foreach($to_save as $table_name => &$columns){
+			$query = "UPDATE FROM $table_name SET ";
+			foreach($columns as $column_name => $property){
+				$query .= "$column_name = :$column_name ";
+			}
+			$query .= "WHERE node_id = {$this->id}";
+			$stmt = $db->prepare($query);
+			foreach($columns as $column_name => $property){
+				$stmt->bindValue(":$column_name", $property->toDB(), $property->getPDOParam());
+			}
+			try {
+				$stmt->execute();
+			} catch(PDOException $e){
+				$db->rollBack();
+				$error = $db->errorInfo();
+				throw new NodeSaveException("Unable to save node : {$error[2]}");
+			}
+		}
+		$db->commit();
+	}
+
+	protected function hydrate(array $line = null){
+		if($line){
+			$properties = $this->properties;
+			foreach($properties as $key => $property){
+				$full_column_name = $property->getFullColumnName();
+				if(isset($line[$full_column_name]) && $property->check($line[$full_column_name])){
+					$property->set($line[$full_column_name]);
+					$property->reset();
+					unset($properties[$key]);
+				}
+			}
+			if(count($properties) == 0){
+				return true;
+			}
+			$missing = array();
+			foreach($properties as $property){
+				$missing[] = $property->getFullColumnName();
+			}
+			throw new NodeHydrateException("Hydratation failed : Missing properties are ".implode(', ', $missing));
+		}
+		$statement = $this->getSelectStatement();
+		$statement->bindValue(':node_id', $this->id, \PDO::PARAM_INT);
+		$statement->execute();
+		$this->hydrate($statement->fetch(PDO::FETCH_ASSOC));
+	}
+
+	protected function getSelectStatement(){
+		if(self::$select_statement){
+			return self::$select_statement;
+		}
+		$tables = array();
+		$columns = array();
+		foreach($this->properties as $property){
+			$tables[$property->getTableName()] = $property->getTableName();
+			$columns[] = $property->getFullColumnName();
+		}
+		$tables = implode(',', $tables);
+		$columns = implode(',', $columns);
+		$query = "SELECT $columns FROM $tables WHERE node_id = :node_id";
+		self::$select_statement = Database::getInstance()->prepare($query);
+		return self::$select_statement;
+	}
+
+	protected function getInsertStatement(){
+		if(self::$insert_statement){
+			return self::$insert_statement;
+		}
+		$tables = array();
+		$columns = array();
+		foreach($this->properties as $property){
+			$tables[$property->getTableName()] = $property->getTableName();
+			$columns[] = $property->getFullColumnName();
+		}
+		//$query = "INSERT ".implode(',', $columns);
+		//$query .= " FROM ".implode(',', $tables)." WHERE node_id = :node_id";
+		//TODO
+		self::$insert_statement = Database::getInstance()->prepare($query);
+		return self::$insert_statement;
+	}
+
+	protected function getDeleteStatement(){
+		if(self::$delete_statement){
+			return self::$delete_statement;
+		}
+		$tables = array();
+		$columns = array();
+		foreach($this->properties as $property){
+			$tables[$property->getTableName()] = $property->getTableName();
+			$columns[] = $property->getFullColumnName();
+		}
+		$query = "DELETE FROM ".implode(',', $tables)." WHERE node_id = :node_id";
+		self::$delete_statement = Database::getInstance()->prepare($query);
+		return self::$delete_statement;
+	}
+
 	/**
 	 * This function initialize the node, it gets the basic informations out of the database,
 	 * then it checks the permissions and some minor stuff.
@@ -74,20 +193,6 @@ class Node{
 //			}
 //		}
 //	}
-	public function __construct(){
-		;
-	}
-	
-	public function __call($name, $arguments){
-		return _Core()->$name($this, $arguments);
-	}
-
-
-	public function __destruct(){
-		if($this->autosave){
-			$this->save();
-		}
-	}
 
 	/**
 	 * This function checks the permissions on the node and return an array with
@@ -102,9 +207,9 @@ class Node{
 
 		//If this node has inherited permissions, return the parent node's permissions
 		if($this->properties['inherit_permissions']){
-			$auths=$this->getParent()->getAuthorizations();
+			$auths = $this->getParent()->getAuthorizations();
 			//If the user is not initialized, returns current permissions
-			if(_core()->user()==null){
+			if(_core()->user() == null){
 				return $auths;
 			}
 			//If the user is not connected, returns the permissions right now.
@@ -114,36 +219,36 @@ class Node{
 			//Checking for each permissions/subsriptions ONLY FOR ONWERSHIP OR MASTERSHIP (+positive filter)
 			foreach($this->getPermissions() as $perm){
 				//If user is in permission or in group's permission
-				if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
+				if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id'] == _core()->user()->get('node_id')){
 					if(!$perm['b_inverse']){//If permissions are not inversed (meaning they are normal)
 						//Checking individual permissions
 						if($perm['b_ownership']){
-							$auths['ownership']=true;
+							$auths['ownership'] = true;
 						}
 						if($perm['b_mastership']){
-							$auths['mastership']=true;
-							$auths['read']=true;
-							$auths['add']=true;
-							$auths['edit']=true;
-							$auths['delete']=true;
+							$auths['mastership'] = true;
+							$auths['read'] = true;
+							$auths['add'] = true;
+							$auths['edit'] = true;
+							$auths['delete'] = true;
 						}
 					}
 				}
 			}
-			return $auths;//Will return parent's permissions + ownership or mastership of current node if exists
+			return $auths; //Will return parent's permissions + ownership or mastership of current node if exists
 		}
 
 		//Let's start with everything to false by default.
-		$auths=array('read'=>false, 'add'=>false, 'edit'=>false, 'delete'=>false, 'ownership'=>false, 'mastership'=>false); //Init values
+		$auths = array('read' => false, 'add' => false, 'edit' => false, 'delete' => false, 'ownership' => false, 'mastership' => false); //Init values
 		//
 		//Get anonymous authorizations
-		$auths['read']=(bool)$this->properties['anonymous_read'];
-		$auths['add']=(bool)$this->properties['anonymous_add'];
-		$auths['edit']=(bool)$this->properties['anonymous_edit'];
-		$auths['delete']=(bool)$this->properties['anonymous_delete'];
+		$auths['read'] = (bool)$this->properties['anonymous_read'];
+		$auths['add'] = (bool)$this->properties['anonymous_add'];
+		$auths['edit'] = (bool)$this->properties['anonymous_edit'];
+		$auths['delete'] = (bool)$this->properties['anonymous_delete'];
 
 		//If the user is not initialized, returns current permissions
-		if(_core()->user()==null){
+		if(_core()->user() == null){
 			return $auths;
 		}
 		//If the user is not connected, returns the permissions right now.
@@ -154,21 +259,21 @@ class Node{
 		//Checking for each permissions/subsriptions (+positive filter)
 		foreach($this->getPermissions() as $perm){
 			//If user is in permission or in group's permission
-			if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
+			if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id'] == _core()->user()->get('node_id')){
 				if(!$perm['b_inverse']){//If permissions are not inversed (meaning they are normal)
 					//Checking individual permissions
 					if($perm['b_read'])
-						$auths['read']=true;
+						$auths['read'] = true;
 					if($perm['b_add'])
-						$auths['add']=true;
+						$auths['add'] = true;
 					if($perm['b_edit'])
-						$auths['edit']=true;
+						$auths['edit'] = true;
 					if($perm['b_delete'])
-						$auths['delete']=true;
+						$auths['delete'] = true;
 					if($perm['b_ownership'])
-						$auths['ownership']=true;
+						$auths['ownership'] = true;
 					if($perm['b_mastership']){
-						$auths['mastership']=true;
+						$auths['mastership'] = true;
 					}
 				}
 			}
@@ -177,17 +282,17 @@ class Node{
 		//Checking for each permissions/subsriptions (-NEGATIVE filter)
 		foreach($this->getPermissions() as $perm){
 			//If user is in permission or in group's permission
-			if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id']==_core()->user()->get('node_id')){
+			if(_core()->user()->isInGroup($perm['entity_id']) || $perm['entity_id'] == _core()->user()->get('node_id')){
 				if($perm['b_inverse']){//If permissions ARE INVERSED
 					//Checking individual permissions
 					if($perm['b_read'])
-						$auths['read']=false;
+						$auths['read'] = false;
 					if($perm['b_add'])
-						$auths['add']=false;
+						$auths['add'] = false;
 					if($perm['b_edit'])
-						$auths['edit']=false;
+						$auths['edit'] = false;
 					if($perm['b_delete'])
-						$auths['delete']=false;
+						$auths['delete'] = false;
 					//Note: You can't cancel ownership and mastership
 				}
 			}
@@ -196,16 +301,16 @@ class Node{
 		//For the parents, we check the mastership of the node, which is a "transmissive" property
 		if(!$this->isRoot()){
 			if($this->getParent()->getAuth('mastership')){
-				$auths['mastership']=true;
+				$auths['mastership'] = true;
 			}
 		}
 
 		//In any case, if the user has the mastership, he has all rights
 		if($auths['mastership']){
-			$auths['read']=true;
-			$auths['add']=true;
-			$auths['edit']=true;
-			$auths['delete']=true;
+			$auths['read'] = true;
+			$auths['add'] = true;
+			$auths['edit'] = true;
+			$auths['delete'] = true;
 		}
 
 		return $auths;
@@ -216,11 +321,11 @@ class Node{
 	 * returns boolean
 	 */
 	public function isOwner($entity){
-		if($this==$entity){
+		if($this == $entity){
 			return true;
 		}
 		foreach($this->getPermissions() as $perm){
-			if($perm['entity_id']==$entity->get('node_id') && $perm['b_ownership'] && !$perm['b_inverse']){
+			if($perm['entity_id'] == $entity->get('node_id') && $perm['b_ownership'] && !$perm['b_inverse']){
 				return true;
 			}
 		}
@@ -232,13 +337,13 @@ class Node{
 	 * return an array of node
 	 */
 	public function getOwners(){
-		$owners=array();
+		$owners = array();
 		foreach($this->getPermissions() as $perm){
 			if($perm['b_ownership'] && !$perm['b_inverse']){
-				if($perm['entity_id']==$this->properties['node_id']){//If the current node is self-owned (user node)
-					$owners[]=$this;
+				if($perm['entity_id'] == $this->properties['node_id']){//If the current node is self-owned (user node)
+					$owners[] = $this;
 				} else {
-					$owners[]=_core()->node($perm['entity_id']);
+					$owners[] = _core()->node($perm['entity_id']);
 				}
 			}
 		}
@@ -249,7 +354,7 @@ class Node{
 	 * Get first owner of the node
 	 */
 	public function getOwner(){
-		$owners=$this->getOwners();
+		$owners = $this->getOwners();
 		if(count($owners) > 0){
 			return $owners[0];
 		}
@@ -258,9 +363,9 @@ class Node{
 
 	public final function getPermissions(){
 		//Get all permissions for this node.
-		if($this->perms==null){
-			$query='SELECT * FROM node_permission WHERE node_id='.(int)$this->properties['node_id'];
-			$this->perms=_core()->db()->getArray($query);
+		if($this->perms == null){
+			$query = 'SELECT * FROM node_permission WHERE node_id='.(int)$this->properties['node_id'];
+			$this->perms = _core()->db()->getArray($query);
 		}
 		return $this->perms;
 	}
@@ -274,7 +379,7 @@ class Node{
 		}
 		return $this;
 	}
-	
+
 	public function __toString(){
 		return $this->name;
 	}
@@ -283,7 +388,7 @@ class Node{
 	 * This function returns the value of a property for this node.
 	 */
 	public function __get($key){
-		$throw_error=true;
+		$throw_error = true;
 		if(!$this->auths['read'] && !in_array($key, $this->public)){//If user cannot read and key not public
 			if($throw_error){
 				$this->addReadError();
@@ -298,19 +403,19 @@ class Node{
 			}
 			return false;
 		}
-		
+
 		if(array_key_exists($key, $this->properties)){//Test array key
 			return $this->properties[$key];
 		}
 
 		//Adding all node_infos properties
-		$query='SELECT * FROM node_info WHERE node_id='.$this->properties['node_id'];
-		$this->properties=array_merge($this->properties, (array)_core()->db()->getRow($query));
+		$query = 'SELECT * FROM node_info WHERE node_id='.$this->properties['node_id'];
+		$this->properties = array_merge($this->properties, (array)_core()->db()->getRow($query));
 
 		if(array_key_exists($key, $this->properties)){//Test array key
 			return $this->properties[$key];
 		}
-		
+
 		if($throw_error){
 			_core()->error()->add(11, 2, 'Trying to get "'.$key.'"');
 		}
@@ -322,15 +427,15 @@ class Node{
 	 * @param <string> $options
 	 * @return <string> URL
 	 */
-	public function link($options=null){
+	public function link($options = null){
 		return _core()->link($this, $options);
 	}
 
 	/**
 	 * Returns a formated string with the creation date.
 	 */
-	public final function getCreationDate($format=DATE_DEFAULT){
-		$str=$this->get('creation');
+	public final function getCreationDate($format = DATE_DEFAULT){
+		$str = $this->get('creation');
 		if($str == false){
 			return false;
 		}
@@ -340,8 +445,8 @@ class Node{
 	/**
 	 * Returns a formated string with the modification date.
 	 */
-	public final function getModificationDate($format=DATE_DEFAULT){
-		$str=$this->get('modification');
+	public final function getModificationDate($format = DATE_DEFAULT){
+		$str = $this->get('modification');
 		if($str == false){
 			return false;
 		}
@@ -368,39 +473,38 @@ class Node{
 			return false;
 		}
 
-		$tmp=$parent_node->getAllowedChildTypes(); //Retrieve all allowed child types for the parent node
+		$tmp = $parent_node->getAllowedChildTypes(); //Retrieve all allowed child types for the parent node
 		if(!in_array($type_name, $tmp)){ //If this type of node is not permitted inside parent
 			$config->error()->add(19);
 			return false;
 		}
-		
+
 		//From here we have everything we need to insert the new node inside the database:
 		$config->db()->beginTransaction(); //Start transaction to enable rollback
-		
 		//Inserting basic informations on node
-		$query='INSERT INTO node_generic (parent_node_id,type_name,creator,index_num) VALUES ('.$parent_node->get('node_id').',\''.$type_name.'\',\''.$config->secureString($config->user()).'\','.$parent_node->getNextChildIndex().')';
+		$query = 'INSERT INTO node_generic (parent_node_id,type_name,creator,index_num) VALUES ('.$parent_node->get('node_id').',\''.$type_name.'\',\''.$config->secureString($config->user()).'\','.$parent_node->getNextChildIndex().')';
 		if(!$config->db()->exec($query)){
 			$config->error()->add(30, 3);
 			$config->db()->rollbackTransaction();
 			return false;
 		}
-		
-		$id=$config->db()->getLastId();
+
+		$id = $config->db()->getLastId();
 		if($id == false){
 			$config->error()->add(30, 3);
 			$config->db()->rollbackTransaction();
 			return false;
 		}
-		
-		//If everything is good, continue with inserting advanced 
-		$query='INSERT INTO node_info (node_id,creation,modification) VALUES ('.$id.','.$config->date()->now().','.$config->date()->now().')';
+
+		//If everything is good, continue with inserting advanced
+		$query = 'INSERT INTO node_info (node_id,creation,modification) VALUES ('.$id.','.$config->date()->now().','.$config->date()->now().')';
 		if(!$config->db()->exec($query)){
 			$config->error()->add(30, 3);
 			$config->db()->rollbackTransaction();
 			return false;
 		}
 		if($config->user()->isConnected()){
-			$query='INSERT INTO node_permission (entity_id,node_id,b_ownership) VALUES ('.$config->user()->get('node_id').','.$id.',1)';
+			$query = 'INSERT INTO node_permission (entity_id,node_id,b_ownership) VALUES ('.$config->user()->get('node_id').','.$id.',1)';
 			if(!$config->db()->exec($query)){
 				$config->error()->add(30, 3);
 				$config->db()->rollbackTransaction();
@@ -409,30 +513,30 @@ class Node{
 		}
 
 		//Updating modification date for parent node
-		$query='UPDATE node_info SET modification='.$config->date()->now().' WHERE node_id='.$parent_node->get('node_id');
+		$query = 'UPDATE node_info SET modification='.$config->date()->now().' WHERE node_id='.$parent_node->get('node_id');
 		$config->db()->exec($query);
 		$config->db()->commitTransaction();
-		
+
 		return (int)$id;
 	}
-	
-	public static function get_add_form($action='',$method='post'){
+
+	public static function get_add_form($action = '', $method = 'post'){
 		require_once REAL_PATH.'includes/interface/class.ui_form.php';
 		require_once REAL_PATH.'includes/interface/class.Input.php';
 		require_once REAL_PATH.'includes/interface/class.ui_textarea.php';
-		$form=new ui_form($action,$method);
+		$form = new ui_form($action, $method);
 		$form->setPrefix('add_');
 		$form->add(new Input('title', 'Title :', 'text'));
 		$form->add(new ui_textarea('content', 'Content :'));
 		$form->add(new Input('tags', 'Tags :', 'text', ''));
 		return $form;
 	}
-	
+
 	/**
 	 * Returns the next free child index for the current node.
 	 */
 	public final function getNextChildIndex(){
-		$query='SELECT index_num FROM node_generic WHERE parent_node_id='.$this->properties['node_id'].' ORDER BY index_num DESC LIMIT 1';
+		$query = 'SELECT index_num FROM node_generic WHERE parent_node_id='.$this->properties['node_id'].' ORDER BY index_num DESC LIMIT 1';
 		return (int)_core()->db()->getSingle($query) + 1;
 	}
 
@@ -451,51 +555,50 @@ class Node{
 	 * to the root node.
 	 */
 	public function getParents(){
-		$result=array(); //Array of nodes
+		$result = array(); //Array of nodes
 		if($this->properties['node_id'] != $this->properties['parent_node_id']){
-			$tmp=$this;
-			do{
-				$tmp=$tmp->getParent();
-				$result[]=$tmp;
+			$tmp = $this;
+			do {
+				$tmp = $tmp->getParent();
+				$result[] = $tmp;
 			} while($tmp->get('node_id') != $tmp->get('parent_node_id'));
 		}
 		return $result;
 	}
-
 
 	/**
 	 * Get the childs of the current node.
 	 * You can specify options:
 	 * [node property], asc|desc, (int) [limit], (Array) [allowed types]
 	 */
-	public function getChilds($order_by='index_num', $order='ASC', $limit=null, $types=array()){
+	public function getChilds($order_by = 'index_num', $order = 'ASC', $limit = null, $types = array()){
 		if(!$this->auths['read']){
 			$this->addReadError();
 			return false;
 		}
-		$result=array();
-		$or_conditions=array();
-		$and_conditions=array();
+		$result = array();
+		$or_conditions = array();
+		$and_conditions = array();
 		//Check if the ordering type matches
-		$column=array('type_name', 'title', 'index_num', 'creation', 'modification');
+		$column = array('type_name', 'title', 'index_num', 'creation', 'modification');
 		if(!in_array($order_by, $column)){//If not a column name
-			$order_by='index_num'; //Default column for ordering
-			_core()->error()->add(0);//TODO: Needs to throw some kind of error
+			$order_by = 'index_num'; //Default column for ordering
+			_core()->error()->add(0); //TODO: Needs to throw some kind of error
 		}
 		if($order != 'DESC'){//If not DESC
-			$order='ASC'; //Then it must be ASC (default for SQL ordering)
+			$order = 'ASC'; //Then it must be ASC (default for SQL ordering)
 		}
 		foreach($types as $type){//For each type of node we want
-			if(substr($type, 0, 1)=='-'){
-				$type=substr($type,1);
+			if(substr($type, 0, 1) == '-'){
+				$type = substr($type, 1);
 				if(_core()->isType($type)){//If the type exists
-					$and_conditions[]='type_name!=\''.$type.'\''; //We add a condition
+					$and_conditions[] = 'type_name!=\''.$type.'\''; //We add a condition
 				}
 			} elseif(_core()->isType($type)){//If the type exists
-				$or_conditions[]='type_name=\''.$type.'\''; //We add a condition
+				$or_conditions[] = 'type_name=\''.$type.'\''; //We add a condition
 			}
 		}
-		$query='SELECT n.node_id,'.$order_by.' FROM node_generic AS n, node_info AS i WHERE n.parent_node_id='.$this->properties['node_id'].' AND n.node_id!='.$this->properties['node_id'].' AND n.node_id=i.node_id ';
+		$query = 'SELECT n.node_id,'.$order_by.' FROM node_generic AS n, node_info AS i WHERE n.parent_node_id='.$this->properties['node_id'].' AND n.node_id!='.$this->properties['node_id'].' AND n.node_id=i.node_id ';
 		if(count($or_conditions) > 0){
 			$query.=' AND ('.implode(' OR ', $or_conditions).')';
 		}
@@ -506,9 +609,9 @@ class Node{
 		if($limit != null){
 			$query.=' LIMIT '.(int)$limit;
 		}
-		$tmp=_core()->db()->getArray($query);
+		$tmp = _core()->db()->getArray($query);
 		foreach($tmp as $value){
-			$result[]=_core()->node($value['node_id']);
+			$result[] = _core()->node($value['node_id']);
 		}
 		return $result;
 	}
@@ -530,11 +633,11 @@ class Node{
 			$this->addReadError();
 			return false;
 		}
-		$query='SELECT a.allowed_type FROM node_generic AS n, allowed_type AS a WHERE n.type_name=a.type_name AND n.node_id='.$this->properties['parent_node_id'];
-		$tmp=_core()->db()->getArray($query);
-		$tmp2=array();
+		$query = 'SELECT a.allowed_type FROM node_generic AS n, allowed_type AS a WHERE n.type_name=a.type_name AND n.node_id='.$this->properties['parent_node_id'];
+		$tmp = _core()->db()->getArray($query);
+		$tmp2 = array();
 		foreach($tmp as $value){
-			$tmp2[]=$value['allowed_type'];
+			$tmp2[] = $value['allowed_type'];
 		}
 		return $tmp2;
 	}
@@ -547,11 +650,11 @@ class Node{
 			$this->addReadError();
 			return false;
 		}
-		$query='SELECT a.allowed_type FROM node_generic AS n, allowed_type AS a WHERE n.type_name=a.type_name AND n.node_id='.$this->properties['node_id'];
-		$tmp=_core()->db()->getArray($query);
-		$tmp2=array();
+		$query = 'SELECT a.allowed_type FROM node_generic AS n, allowed_type AS a WHERE n.type_name=a.type_name AND n.node_id='.$this->properties['node_id'];
+		$tmp = _core()->db()->getArray($query);
+		$tmp2 = array();
 		foreach($tmp as $value){
-			$tmp2[]=$value['allowed_type'];
+			$tmp2[] = $value['allowed_type'];
 		}
 		return $tmp2;
 	}
@@ -559,7 +662,7 @@ class Node{
 	/**
 	 * TODO: Needs rewriting !
 	 */
-	public function delete($transaction=true){
+	public function delete($transaction = true){
 		//Check permissions
 		if(!$this->auths['delete']){
 			$this->addDelError();
@@ -567,7 +670,7 @@ class Node{
 		}
 
 		//Some elements can't be deleted
-		if($this->isRoot() || in_array($this->properties['type_name'],array('users','groups'))){
+		if($this->isRoot() || in_array($this->properties['type_name'], array('users', 'groups'))){
 			_core()->error()->add(18);
 			return false;
 		}
@@ -579,7 +682,7 @@ class Node{
 			_core()->db()->beginTransaction();
 		}
 
-		$tmp=$this->getChildren(); //Get all childs
+		$tmp = $this->getChildren(); //Get all childs
 		if(count($tmp) > 0){//If there is any
 			foreach($tmp as $child){//Try to delete each child
 				if(!$child->delete(false)){//Just continue on success
@@ -591,47 +694,47 @@ class Node{
 				}
 			}
 		}
-		
 
-		$tmp=$this->deleteMore($transaction);
+
+		$tmp = $this->deleteMore($transaction);
 		if(!$tmp){
-			_core()->error()->add(0);//TODO: Throw some error
-			if($transaction){
-				_core()->db()->rollbackTransaction();
-			}
-			return false;
-		}
-		
-		$query='DELETE FROM node_permission WHERE node_id='.$this->properties['node_id'];
-		if(!_core()->db()->exec($query)){
-			_core()->error()->add(0);//TODO: Throw some error
+			_core()->error()->add(0); //TODO: Throw some error
 			if($transaction){
 				_core()->db()->rollbackTransaction();
 			}
 			return false;
 		}
 
-		$query='DELETE FROM node_generic WHERE node_id='.$this->properties['node_id'];
+		$query = 'DELETE FROM node_permission WHERE node_id='.$this->properties['node_id'];
 		if(!_core()->db()->exec($query)){
-			_core()->error()->add(0);//TODO: Throw some error
+			_core()->error()->add(0); //TODO: Throw some error
 			if($transaction){
 				_core()->db()->rollbackTransaction();
 			}
 			return false;
 		}
-		
+
+		$query = 'DELETE FROM node_generic WHERE node_id='.$this->properties['node_id'];
+		if(!_core()->db()->exec($query)){
+			_core()->error()->add(0); //TODO: Throw some error
+			if($transaction){
+				_core()->db()->rollbackTransaction();
+			}
+			return false;
+		}
+
 		if($transaction){
 			_core()->db()->commitTransaction();
 		}
-		
+
 		//Updating modification date for parent
-		$query='UPDATE node_info SET modification='._core()->date()->now().' WHERE node_id='.$this->properties['parent_node_id'];
+		$query = 'UPDATE node_info SET modification='._core()->date()->now().' WHERE node_id='.$this->properties['parent_node_id'];
 		_core()->db()->exec($query);
 		return true;
 	}
-	
+
 	protected function deleteMore($transaction){
-		$query='DELETE FROM node_info WHERE node_id='.$this->properties['node_id'];
+		$query = 'DELETE FROM node_info WHERE node_id='.$this->properties['node_id'];
 		if(!_core()->db()->exec($query)){
 			return false;
 		}
@@ -644,20 +747,20 @@ class Node{
 	 * array of forms. This method saves all the data in the form inside the
 	 * database.
 	 */
-	public function edit($forms=null){
+	public function edit($forms = null){
 		if(!$this->auths['edit']){//Test permissions
 			$this->addEditError();
 			return false;
 		}
-		
-		if($forms==null){
-			$forms=$this->form();
+
+		if($forms == null){
+			$forms = $this->form();
 		}
-		
+
 		if(!is_array($forms)){
-			$forms=array($forms);
+			$forms = array($forms);
 		}
-		
+
 		foreach($forms as $form){
 			if(!$form->isActive()){
 				break;
@@ -670,63 +773,63 @@ class Node{
 			/**
 			 * EDITING COMMON INFORMATIONS
 			 */
-			$list=array();
+			$list = array();
 			if($form->get('title')){
-				$list[]='title=\''._core()->secureString($form->getValue('title')).'\'';
+				$list[] = 'title=\''._core()->secureString($form->getValue('title')).'\'';
 			}
 			if($form->get('index_num')){
-				$list[]='index_num='.(int)$form->getValue('index_num');
+				$list[] = 'index_num='.(int)$form->getValue('index_num');
 			}
-			foreach(array('read','add','edit','delete') as $p){
+			foreach(array('read', 'add', 'edit', 'delete') as $p){
 				if($form->get('anonymous.'.$p)){
-					$list[]='anonymous_'.$p.'='.(int)(bool)$form->getValue('anonymous.'.$p);
+					$list[] = 'anonymous_'.$p.'='.(int)(bool)$form->getValue('anonymous.'.$p);
 				}
 			}
 			if(!$this->isRoot() && $form->get('inherit_permissions')){
-				$list[]='inherit_permissions='.(int)(bool)$form->getValue('inherit_permissions');
+				$list[] = 'inherit_permissions='.(int)(bool)$form->getValue('inherit_permissions');
 			}
-			if(count($list)>0){
-				$query='UPDATE node_generic SET '.implode(', ', $list).' WHERE node_id='.$this->properties['node_id'];
+			if(count($list) > 0){
+				$query = 'UPDATE node_generic SET '.implode(', ', $list).' WHERE node_id='.$this->properties['node_id'];
 				if(!_core()->db()->exec($query)){
-					_core()->error()->add(0);//TODO : Throw some error
+					_core()->error()->add(0); //TODO : Throw some error
 					return false;
 				}
 			}
-			
+
 			//Editing node_info
-			$list=array();
+			$list = array();
 			if($form->get('content')){
-				$list[]='content=\''._core()->secureString($form->getValue('content'),true).'\'';
+				$list[] = 'content=\''._core()->secureString($form->getValue('content'), true).'\'';
 			}
 			if($form->get('tags')){
-				$list[]='tags=\''._core()->secureString($form->getValue('tags')).'\'';
+				$list[] = 'tags=\''._core()->secureString($form->getValue('tags')).'\'';
 			}
 			if($form->get('modification')){
-				$list[]='modification='._core()->date()->now();
+				$list[] = 'modification='._core()->date()->now();
 			}
-			if(count($list)>0){
-				$query='UPDATE node_info SET '.implode(', ', $list).' WHERE node_id='.$this->properties['node_id'];
+			if(count($list) > 0){
+				$query = 'UPDATE node_info SET '.implode(', ', $list).' WHERE node_id='.$this->properties['node_id'];
 				if(!_core()->db()->exec($query)){
 					_core()->error()->add(0);
 					return false;
 				}
 			}
-		
+
 			/**
 			 * EDITING NODE'S PERMISSIONS
 			 */
 			//Save all changes on acive permissions
 			foreach($this->getPermissions() as $permission){
-				$list=array();
-				foreach(array('read','add','edit','delete','ownership','mastership','inverse') as $perm){
+				$list = array();
+				foreach(array('read', 'add', 'edit', 'delete', 'ownership', 'mastership', 'inverse') as $perm){
 					if($form->get('entity_'.$permission['entity_id'].'.'.$perm)){
-						$list[]='b_'.$perm.'='.(int)(bool)$form->getValue('entity_'.$permission['entity_id'].'.'.$perm);
+						$list[] = 'b_'.$perm.'='.(int)(bool)$form->getValue('entity_'.$permission['entity_id'].'.'.$perm);
 					}
 				}
-				if(count($list)>0){
-					$query='UPDATE node_permission SET '.implode(', ', $list).' WHERE node_id='.$this->properties['node_id'].' AND entity_id='.$permission['entity_id'];
+				if(count($list) > 0){
+					$query = 'UPDATE node_permission SET '.implode(', ', $list).' WHERE node_id='.$this->properties['node_id'].' AND entity_id='.$permission['entity_id'];
 					if(!_core()->db()->exec($query)){
-						_core()->error()->add(0);//TODO : Throw some error
+						_core()->error()->add(0); //TODO : Throw some error
 						return false;
 					}
 				}
@@ -736,25 +839,25 @@ class Node{
 			 * ARGH! Can't find another way to do this !!!
 			 */
 			if(isset($_POST['add_new_entity'])){
-				$query='INSERT INTO node_permission (entity_id,node_id,b_read,b_add,b_edit,b_delete,b_ownership,b_mastership,b_inverse) VALUES (';
+				$query = 'INSERT INTO node_permission (entity_id,node_id,b_read,b_add,b_edit,b_delete,b_ownership,b_mastership,b_inverse) VALUES (';
 				$query.=(int)$form->getValue('new_entity_id').','.$this->properties['node_id'];
-				foreach(array('read','add','edit','delete','ownership','mastership','inverse') as $perm){
+				foreach(array('read', 'add', 'edit', 'delete', 'ownership', 'mastership', 'inverse') as $perm){
 					$query.=','.(int)$form->getValue('new.'.$perm);
 				}
 				$query.=')';
 				if(!_core()->db()->exec($query)){
-					_core()->error()->add(0);//TODO:Throw some error
+					_core()->error()->add(0); //TODO:Throw some error
 				}
 			}
 		}
-		
+
 		return true;
 	}
 
 	public function removePermission($id){
-		$query='DELETE FROM node_permission WHERE node_id='.$this->properties['node_id'].' AND entity_id='.(int)$id;
+		$query = 'DELETE FROM node_permission WHERE node_id='.$this->properties['node_id'].' AND entity_id='.(int)$id;
 		if(!_core()->db()->exec($query)){
-			_core()->error()->add(0);//TODO : Throw some error
+			_core()->error()->add(0); //TODO : Throw some error
 			return false;
 		}
 		return true;
@@ -771,16 +874,16 @@ class Node{
 		}
 		//Form initialization
 		require_once REAL_PATH.'includes/interface/class.ui_form.php';
-		$form=new ui_form();
+		$form = new ui_form();
 		//Prefix used for all the inputs names to avoid duplicate ids
 		$form->setPrefix('n['.$this->properties['node_id'].']['); //Don't change this !!!
 		$form->setSuffix(']');
-		$form->setName('node_'.$this->properties['node_id'].'_content');//And this also.
+		$form->setName('node_'.$this->properties['node_id'].'_content'); //And this also.
 		//
 		//Basic HTML inputs for most of the fields
 		require_once REAL_PATH.'includes/interface/class.Input.php';
 		require_once REAL_PATH.'includes/interface/class.ui_textarea.php';
-		
+
 		/**
 		 * The following lines are all the basics information a node should contain
 		 */
@@ -788,10 +891,10 @@ class Node{
 		$form->add(new ui_textarea('content', _core()->localize('Content').' : ', false, $this->get('content')));
 		$form->add(new Input('tags', _core()->localize('Tags').' : ', 'text', $this->get('tags')));
 
-		$this->form['content']=$form;
+		$this->form['content'] = $form;
 		return $form;
 	}
-	
+
 	/**
 	 * Initialize all basic fields for node edition
 	 * where you can add your customs inputs.
@@ -805,59 +908,59 @@ class Node{
 			//_core()->error()->add(0);//TODO !!!!
 			return false;
 		}
-		
+
 		//Form initialization
 		require_once REAL_PATH.'includes/interface/class.ui_form.php';
-		$form=new ui_form();
+		$form = new ui_form();
 		//Prefix used for all the inputs names to avoid duplicate ids
 		$form->setPrefix('n'.$this->properties['node_id'].'_'); //Don't change this !!!
-		$form->setName('node_'.$this->properties['node_id'].'_permissions');//And this also.
+		$form->setName('node_'.$this->properties['node_id'].'_permissions'); //And this also.
 		//
 		//Basic HTML inputs for most of the fields
 		require_once REAL_PATH.'includes/interface/class.Input.php';
 		require_once REAL_PATH.'includes/interface/class.Checkbox.php';
 		require_once REAL_PATH.'includes/interface/class.Select.php';
-		
+
 		$form->add(new Checkbox('inherit_permissions', _core()->localize('Inherit permissions').' : ', (int)$this->get('inherit_permissions')));
 		$form->add(new Checkbox('anonymous.read', null, (int)$this->get('anonymous_read')));
 		$form->add(new Checkbox('anonymous.add', null, (int)$this->get('anonymous_add')));
 		$form->add(new Checkbox('anonymous.edit', null, (int)$this->get('anonymous_edit')));
 		$form->add(new Checkbox('anonymous.delete', null, (int)$this->get('anonymous_delete')));
-		
+
 		/*
 		 * Already registered entities
 		 */
-		$active_entities=array();
+		$active_entities = array();
 		foreach($this->getPermissions() as $permission){
-			$label=$permission['entity_id'].' - '._core()->node($permission['entity_id']);
-			foreach(array('read','add','edit','delete','ownership','mastership','inverse') as $perm){
+			$label = $permission['entity_id'].' - '._core()->node($permission['entity_id']);
+			foreach(array('read', 'add', 'edit', 'delete', 'ownership', 'mastership', 'inverse') as $perm){
 				$form->add(new Checkbox('entity_'.$permission['entity_id'].'.'.$perm, null, $permission['b_'.$perm]));
 			}
-			$active_entities[$permission['entity_id']]=$label;
+			$active_entities[$permission['entity_id']] = $label;
 		}
 
 		/*
 		 * Looking for other entities not yet in the permissions and propose to add them.
 		 */
-		$query='SELECT node_id FROM node_generic WHERE type_name=\'user\' OR type_name=\'group\'';
-		$ids=_core()->db()->getArray($query);
-		$inactive_entities=array();
+		$query = 'SELECT node_id FROM node_generic WHERE type_name=\'user\' OR type_name=\'group\'';
+		$ids = _core()->db()->getArray($query);
+		$inactive_entities = array();
 		foreach($ids as $id){
 			if(!array_key_exists($id['node_id'], $active_entities)){
-				$inactive_entities[$id['node_id']]=$id['node_id'].' - '._core()->node($id['node_id']);
+				$inactive_entities[$id['node_id']] = $id['node_id'].' - '._core()->node($id['node_id']);
 			}
 		}
-		if(count($inactive_entities)>0){
+		if(count($inactive_entities) > 0){
 			$form->add(new Select('new_entity_id', _core()->localize('New').' : ', $inactive_entities));
-			foreach(array('read','add','edit','delete','ownership','mastership','inverse') as $perm){
+			foreach(array('read', 'add', 'edit', 'delete', 'ownership', 'mastership', 'inverse') as $perm){
 				$form->add(new Checkbox('new.'.$perm, null));
 			}
 		}
-		
-		$this->form['permissions']=$form;
+
+		$this->form['permissions'] = $form;
 		return $form;
 	}
-	
+
 	/**
 	 * Initialize all basic fields for node edition
 	 * where you can add your customs inputs.
@@ -867,41 +970,41 @@ class Node{
 			//$this->addEditError();
 			return false;
 		}
-		
+
 		//Form initialization
 		require_once REAL_PATH.'includes/interface/class.ui_form.php';
-		$form=new ui_form();
+		$form = new ui_form();
 		//Prefix used for all the inputs names to avoid duplicate ids
 		$form->setPrefix('n'.$this->properties['node_id'].'_'); //Don't change this !!!
-		$form->setName('node_'.$this->properties['node_id'].'_position');//And this also.
-		
+		$form->setName('node_'.$this->properties['node_id'].'_position'); //And this also.
+
 		require_once REAL_PATH.'includes/interface/class.Input.php';
 		require_once REAL_PATH.'includes/interface/class.Select.php';
-		
+
 		//TODO for move and copy
-		$possible_parents=array($this->get('parent_node_id', false)=>$this->getParent());
+		$possible_parents = array($this->get('parent_node_id', false) => $this->getParent());
 		$form->add(new Select('parent_node_id', _core()->localize('Parent node').' : ', $possible_parents, $this->get('parent_node_id')));
-		
-		$this->form['position']=$form;
+
+		$this->form['position'] = $form;
 		return $form;
 	}
 
 	/**
 	 * Return the form object
 	 */
-	public function form($key=null){
-		if($key===null){//If no key is passed, we return an array of forms
+	public function form($key = null){
+		if($key === null){//If no key is passed, we return an array of forms
 			$this->initContentForm();
 			$this->initPermissionsForm();
 			$this->initPositionForm();
 			return $this->form;
 		}
-		
+
 		if(isset($this->form[$key])){//If a key is specified, return the corresponding form
 			return $this->form[$key];
 		}
-		
-		$method='init'.$key.'Form';
+
+		$method = 'init'.$key.'Form';
 		if(method_exists($this, $method)){//try to init the form if it doesn't already exists
 			call_user_func(array($this, $method));
 			if(isset($this->form[$key])){//If a key is specified, return the corresponding form
@@ -924,37 +1027,37 @@ class Node{
 		if($this->single_error['read']){
 			_core()->error()->add(12);
 		}
-		$this->single_error['read']=false;
+		$this->single_error['read'] = false;
 	}
 
 	protected final function addAddError(){
 		if($this->single_error['add']){
 			_core()->error()->add(13);
 		}
-		$this->single_error['add']=false;
+		$this->single_error['add'] = false;
 	}
 
 	protected final function addEditError(){
 		if($this->single_error['edit']){
 			_core()->error()->add(14);
 		}
-		$this->single_error['edit']=false;
+		$this->single_error['edit'] = false;
 	}
 
 	protected final function addDelError(){
 		if($this->single_error['delete']){
 			_core()->error()->add(15);
 		}
-		$this->single_error['delete']=false;
+		$this->single_error['delete'] = false;
 	}
 
 	//Everything beyond that line is used to generate content
-	
-	public function button($size=ICON_SMALL, $action='', $attributes=array()){
+
+	public function button($size = ICON_SMALL, $action = '', $attributes = array()){
 		return _core()->generateButtonFromNode($this, $size, $action, $attributes);
 	}
-	
-	public function actionButton($action, $title=null, $size=ICON_SMALL, $attributes=array()){
+
+	public function actionButton($action, $title = null, $size = ICON_SMALL, $attributes = array()){
 		return _core()->generateActionButtonFromNode($this, $action, $title, $size, $attributes);
 	}
 
@@ -963,7 +1066,7 @@ class Node{
 	 */
 	public function getThumb(){
 		if($this->getAuth('read')){
-			$icons=$this->getChildren('index_num', 'ASC', null, array('icon'));
+			$icons = $this->getChildren('index_num', 'ASC', null, array('icon'));
 			if(count($icons) > 0){//If there are icons
 				foreach($icons as $icon){//We take the first one we are authorized to see
 					if($icon->getAuth('read')){
@@ -976,7 +1079,7 @@ class Node{
 		return _core()->getThumb($this->get('type_name', false));
 	}
 
-	public function getHtmlThumb($size=ICON_SMALL){
+	public function getHtmlThumb($size = ICON_SMALL){
 		if($this->getAuth('read')){
 			return _core()->generateThumbnail($this->getThumb(), $size, $this);
 		}
@@ -988,7 +1091,7 @@ class Node{
 			$this->addReadError();
 			return false;
 		}
-		$string='<h1>'.$this.'</h1>';
+		$string = '<h1>'.$this.'</h1>';
 		$string.=$this->get('content');
 		return $string;
 	}
