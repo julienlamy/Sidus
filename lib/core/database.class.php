@@ -1,18 +1,30 @@
 <?php
 
-namespace Sidus\Database;
+namespace Sidus;
 
 /**
  * Description of database
  * @todo Rewrite to support PDO
  * @author vincent
  */
-class Database extends \PDO{
-	
-//	private $debug=true;//Display and throw error on each error
-//	private $profile=false;//Record every query
-//
-//
+class Database extends \PDO {
+
+	protected static $instance;
+	protected $debug = false;
+	protected $profile = false;
+
+	public function __construct($dsn, $username = null, $password = null, array $driver_options = null){
+		self::$instance = $this;
+		return parent::__construct($dsn, $username, $password, $driver_options);
+	}
+
+	public static function getInstance(){
+		if(!self::$instance){
+			throw new \PDOException('No database instance registered');
+		}
+		return self::$instance;
+	}
+
 //	public function exec(string $statement){ //Execute a query
 //		$this->profile('exec', $statement);
 //		$result = parent::exec($statement);
@@ -87,7 +99,6 @@ class Database extends \PDO{
 //			file_put_contents('profile.sql', '--exec at '.date('c').':'."\n".$query."\n", FILE_APPEND);
 //		}
 //	}
-
 }
 
 ?>
