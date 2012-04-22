@@ -11,6 +11,10 @@ class Permission extends Node {
 	const ADMIN = 47;
 	const ALL = 63;
 	const INVERSE = 64;
-	
+	const NOT_PERMITTED = 127;
+
+	public static function checkAuth($auth, $permission = self::READ){
+		return ($auth & $permission) == $permission;
+	}
 	
 }

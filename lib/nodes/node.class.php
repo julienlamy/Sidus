@@ -1,15 +1,26 @@
 <?php
 
-namespace Sidus\Nodes;
+namespace \Sidus\Nodes;
 
-use Sidus\Core;
-use Sidus\Database;
+use \Sidus\Core;
+use \Sidus\Database;
+use \Sidus\Properties\propertyInterface;
 
 class Node {
 
-	protected $auths; //Array with the authorizations informations
-	protected $properties; //Node informations (node_id, title, etc...)
-	protected $public = array('node_id', 'parent_node_id'); //Public keys for the get() method
+	/**
+	 * Calculated authorizations between the user and this node
+	 * @see \Sidus\Nodes\Permission for better understanding of permissions
+	 * @var integer
+	 */
+	protected $auths;
+
+	/**
+	 * Properties (aka attributes) of the node, must implement propertyInterface
+	 * @var propertyInterface[]
+	 */
+	protected $properties;
+	
 	protected $single_error = array('read' => true, 'add' => true, 'edit' => true, 'delete' => true); //This is meant to prevent repeating the same error message
 	protected $perms; //Array containing the permissions for this node
 	protected $form = array(); //The form to edit the content of the node
@@ -18,8 +29,9 @@ class Node {
 	protected $insert_statement;
 	protected $delete_statement;
 
-	public function __construct(){
-
+	public function __construct($id = null, array $to_hydrate){
+		//TODO : Hydrate properties
+		//TODO : Calculate auths
 	}
 
 	public function __call($name, $arguments){
@@ -143,6 +155,65 @@ class Node {
 		self::$delete_statement = Database::getInstance()->prepare($query);
 		return self::$delete_statement;
 	}
+
+	public function __toString(){
+		return $this->id;
+	}
+
+	/**
+	 * This function returns the value of a property for this node.
+	 */
+	public function __get($var){
+		$var = strtolower($var);
+		$getter_name = 'get'.\Utils::camelize($var);
+		if(method_exists($this, $getter_name)){
+			return $this->$getter_name();
+		}
+		if(array_key_exists($this->properties, $var)){
+			$property = $this->properties[$var];
+			if($property->canRead($this->auths)){
+				return $property;//Or $property->get() ? <= bad for outputting to html
+			}
+			//TODO : Throw exception / Event ?
+		}
+		//TODO throw InexistingPropertyException
+		return null;
+	}
+
+	public function __set($var, $value){
+		$var = strtolower($var);
+		$setter_name = 'set'.\Utils::Camelize($var);
+		if(method_exists($this, $setter_name)){
+			return $this->$setter_name($value);
+		}
+		if(array_key_exists($this->properties, $var)){
+			$property = $this->properties[$var];
+			if($property->canWrite($this->auths)){
+				$property->set($value);
+				return;
+			}
+			//TODO : Throw exception / Event ?
+		}
+		//TODO throw InexistingPropertyException
+		return null;
+	}
+
+	protected function addProperty(propertyInterface $property){
+		$this->properties[$property->getModelName()] = $property;
+	}
+
+	protected function removeProperty($property){
+		if($property instanceof propertyInterface){
+			unset($this->properties[$property->getModelName()]);
+			return;
+		} elseif(is_string($property)){
+			unset($this->properties[$property]);
+			return;
+		}
+		//TODO throw InexistingPropertyException
+	}
+
+
 
 	/**
 	 * This function initialize the node, it gets the basic informations out of the database,
@@ -380,47 +451,7 @@ class Node {
 		return $this;
 	}
 
-	public function __toString(){
-		return $this->name;
-	}
-
-	/**
-	 * This function returns the value of a property for this node.
-	 */
-	public function __get($key){
-		$throw_error = true;
-		if(!$this->auths['read'] && !in_array($key, $this->public)){//If user cannot read and key not public
-			if($throw_error){
-				$this->addReadError();
-				return false;
-			}
-			//Theses values are specific to the case where you want to display something instead of an error
-			if($key == 'title'){
-				return _core()->localize('Forbidden');
-			}
-			if($key == 'type_name'){
-				return 'secured';
-			}
-			return false;
-		}
-
-		if(array_key_exists($key, $this->properties)){//Test array key
-			return $this->properties[$key];
-		}
-
-		//Adding all node_infos properties
-		$query = 'SELECT * FROM node_info WHERE node_id='.$this->properties['node_id'];
-		$this->properties = array_merge($this->properties, (array)_core()->db()->getRow($query));
-
-		if(array_key_exists($key, $this->properties)){//Test array key
-			return $this->properties[$key];
-		}
-
-		if($throw_error){
-			_core()->error()->add(11, 2, 'Trying to get "'.$key.'"');
-		}
-		return false;
-	}
+	
 
 	/**
 	 * Return a string containing the URL to the node
