@@ -43,7 +43,8 @@ class Element extends \Collection{
 		$getter_name = 'get'.\Utils::Camelize($key);
 		if(method_exists($this, $getter_name)){
 			return $this->$getter_name();
-		} elseif(array_key_exists($this->attributes, $key)){
+		}
+		if(array_key_exists($this->attributes, $key)){
 			return $this->attributes[$key];
 		}
 		return null;
@@ -56,13 +57,12 @@ class Element extends \Collection{
 	public function __set($key, $value){
 		$setter_name = 'set'.\Utils::Camelize($key);
 		if(method_exists($this, $setter_name)){
-			return $this->$setter_name($value);
+			$this->$setter_name($value);
 		} 
 		if(!in_array(strtolower($key), $this::$authorized_attributes)){
 			throw new \InvalidArgumentException("Forbidden attribute $key for element {$this->tag_name}");
 		}
 		$this->attributes[$key] = htmlentities($value);
-		return $this;
 	}
 
 	public function setContent($value){
