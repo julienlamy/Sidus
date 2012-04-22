@@ -82,6 +82,7 @@ interface propertyInterface {
 
 	/**
 	 * Set the value of the property where $value is a correct PHP type
+	 * Call $this->check($value) to ensure correct input and can throw an error
 	 * Must change $this->has_changed to true;
 	 * @param mixed $value
 	 * @return boolean
