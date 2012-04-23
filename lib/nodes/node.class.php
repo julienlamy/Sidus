@@ -1,6 +1,6 @@
 <?php
 
-namespace \Sidus\Nodes;
+namespace Sidus\Nodes;
 
 use \Sidus\Core;
 use \Sidus\Database;
