@@ -74,6 +74,11 @@ abstract class Loader{
 					require_once $file_path;
 					return;
 				}
+				$file_path = $path.$class_name.$extension;
+				if(is_file($file_path)){
+					require_once $file_path;
+					return;
+				}
 			}
 		}
 		throw new \LogicException('Unable to load class : '.$class_name);
