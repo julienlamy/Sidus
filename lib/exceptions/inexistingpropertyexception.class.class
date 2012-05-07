@@ -1,0 +1,7 @@
+<?php
+
+namespace Sidus\Exceptions;
+
+class InexistingPropertyException extends Exception{
+
+}
