@@ -7,6 +7,7 @@ use Sidus\Nodes\Permission;
 /**
  * Common interface for all properties, define an set of rules to exchange vars
  * from Database to the end user interface.
+ * All methods must check the permission set of the user before doing anything.
  */
 interface propertyInterface {
 

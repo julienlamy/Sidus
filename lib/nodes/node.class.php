@@ -25,11 +25,14 @@ class Node {
 	protected $perms; //Array containing the permissions for this node
 	protected $form = array(); //The form to edit the content of the node
 	protected $autosave = true;
-	protected $select_statement;
-	protected $insert_statement;
-	protected $delete_statement;
+	protected static $select_statement;
+	protected static $insert_statement;
+	protected static $delete_statement;
 
 	public function __construct($id = null, array $to_hydrate){
+		$property = new \Sidus\Properties\String('sd_info', 'title');
+		$property->setInput('\HTML\Email');
+		$this->addProperty();
 		//TODO : Hydrate properties
 		//TODO : Calculate auths
 	}
