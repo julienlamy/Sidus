@@ -1,0 +1,3 @@
+[submodule "lib/httpfoundation"]
+	path = lib/httpfoundation
+	url = git@github.com:VincentChalnot/HttpFoundation.git
