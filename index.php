@@ -15,6 +15,7 @@ if(!defined('PROJECT_REAL_PATH')){
 }
 
 require_once REAL_PATH.'lib/core/loader.class.php';
+Loader::addExtension('.php');
 Loader::addExtension('.class.php');
 Loader::addExtension('.interface.php');
 
@@ -22,4 +23,4 @@ Loader::addPath(REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'core');
 Loader::addPath(REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'interface');
 Loader::addPath(REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'nodes');
 Loader::addPath(REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'properties');
-
+Loader::addPath(REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'httpfoundation');
