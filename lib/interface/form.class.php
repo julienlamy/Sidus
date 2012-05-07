@@ -4,6 +4,8 @@ namespace HTML;
 
 class Form extends Element {
 
+	protected $inputs = array();
+	
 	protected static $authorized_attributes = array('id', 'class', 'style', 'title', 'dir', 'lang', 'xml:lang', 'accesskey', 'tabindex', 'onkeydown', 'onkeypress', 'onkeyup', 'onclick', 'ondblclick', 'onmousedown', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup', 'action', 'accept', 'accept-charset', 'enctype', 'method', 'name', 'target');
 
 	public function __construct($action = '', $method = 'post'){
@@ -16,6 +18,14 @@ class Form extends Element {
 		$label = new \HTML\Label($label, $input);
 		$this->attach($label);
 		$this->attach($input);
+		return $this;
+	}
+
+	public function attach($object, $data = null){
+		parent::attach($object, $data);
+		if(is_a($object, '\\HTML\\Input')){
+			$this->inputs[$object->name] = $object;
+		}
 		return $this;
 	}
 

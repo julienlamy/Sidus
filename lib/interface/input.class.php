@@ -2,6 +2,8 @@
 
 namespace HTML;
 
+use \Symfony\Component\HttpFoundation\ApacheRequest;
+
 class Input extends Element {
 
 	protected $regexp = null;
@@ -20,13 +22,8 @@ class Input extends Element {
 	}
 
 	public function hydrateValueFromRequest($from = null){
-		if(!$from){
-			$from = &$_REQUEST;
-		}
-		var_dump($from);
-		if(array_key_exists($this->name, $from)){
-			$this->value = $from[$this->name];
-		}
+		$request = ApacheRequest::createFromGlobals();
+		$this->value = $request->request->get($this->name, $this->value, true);
 	}
 
 	/**
@@ -79,6 +76,10 @@ class Input extends Element {
 		return $this;
 	}
 
+	public function setValue($value){
+		$this->attributes['value'] = htmlentities($value);
+	}
+
 	/**
 	 * Validate the input. Try to match the regexp.
 	 * @return boolean
@@ -88,8 +89,8 @@ class Input extends Element {
 		if($this->regexp){//If you have set a regexp to test input
 			$result = preg_replace($this->regexp, '', $this->value, 1); //replace by nothing
 			if($result != ''){//If there is chars left, it means the input doesn't match the regexp...
+				$this->addClass('form_error');
 				return false;
-				//throw new \InvalidArgumentException("The input does not match the regexp ({$this->regexp})");
 			}
 		}
 		return true;
