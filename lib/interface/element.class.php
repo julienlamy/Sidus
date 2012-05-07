@@ -2,15 +2,14 @@
 
 namespace HTML;
 
-class Element extends \Collection{
+class Element extends \Collection {
 
 	protected $tag_name;
 	protected $attributes = array();
-	protected $content = '';
 	protected $is_void_element = false;
 	protected static $void_elements = array('area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr');
 	protected static $forbidden_elements = array('base', 'head', 'html', 'meta', 'param', 'script', 'style');
-	
+
 	/**
 	 * Common html attributes.
 	 * WARNING ! The following elements don't support all the event
@@ -19,23 +18,23 @@ class Element extends \Collection{
 	 * @see http://www.w3schools.com/tags/ref_eventattributes.asp
 	 * @var Array $authorized_attributes
 	 */
-	protected static $authorized_attributes = array('id', 'class', 'style', 'title', 'dir', 'lang', 'xml_lang', 'accesskey', 'tabindex', 'onkeydown', 'onkeypress', 'onkeyup', 'onclick', 'ondblclick', 'onmousedown', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup');
+	protected static $authorized_attributes = array('id', 'class', 'style', 'title', 'dir', 'lang', 'xml:lang', 'accesskey', 'tabindex', 'onkeydown', 'onkeypress', 'onkeyup', 'onclick', 'ondblclick', 'onmousedown', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup');
 
 	/**
 	 *
 	 * @param string $tag_name
-	 * @param string $content
+	 * @param mixed $content
 	 * @throws \InvalidArgumentException 
 	 */
-	public function __construct($tag_name, $content = ''){
+	public function __construct($tag_name, $content = null){
 		if(in_array(strtolower($tag_name), $this::$forbidden_elements)){
 			throw new \InvalidArgumentException('forbidden element tag name ('.$tag_name.')');
 		}
 		$this->tag_name = $tag_name;
 		if(array_search($this->tag_name, $this::$void_elements)){
 			$this->is_void_element = true;
-		} else {
-			$this->content = $content;
+		} elseif($content){
+			$this->attach($content);
 		}
 	}
 
@@ -44,33 +43,54 @@ class Element extends \Collection{
 		if(method_exists($this, $getter_name)){
 			return $this->$getter_name();
 		}
-		if(array_key_exists($this->attributes, $key)){
+		if(array_key_exists($key, $this->attributes)){
 			return $this->attributes[$key];
 		}
 		return null;
 	}
 
-	public function getContent(){
-		return $this->content;
+	public function getAll(){
+		$tmp = '';
+		foreach($this as $element){
+			$tmp .= $element;
+		}
+		return $tmp;
 	}
 
 	public function __set($key, $value){
 		$setter_name = 'set'.\Utils::Camelize($key);
 		if(method_exists($this, $setter_name)){
 			$this->$setter_name($value);
-		} 
+		}
 		if(!in_array(strtolower($key), $this::$authorized_attributes)){
 			throw new \InvalidArgumentException("Forbidden attribute $key for element {$this->tag_name}");
 		}
 		$this->attributes[$key] = htmlentities($value);
 	}
 
-	public function setContent($value){
+	public function clear(){
+		$this->removeAll($this);
+		return $this;
+	}
+
+	public function attach($object, $data = null){
 		if(array_search($this->tag_name, $this::$void_elements)){
-			//throw new Exception();//@TODO
-			return $this;
+			throw new \UnexpectedValueException("Can't add content to {$this->tag_name}: void element");
 		}
-		$this->content = $value;
+		if(is_array($object)){
+			foreach($object as $tmp){
+				$this->attach($tmp);
+			}
+		} elseif(is_object($object)){
+			parent::attach($object, $data);
+		} else {
+			try {
+				$object = new String($object);
+			} catch(Exception $e){
+				throw new \UnexpectedValueException("Invalid object type, must be either an object, an array or a castable to a string");
+			}
+			parent::attach($object, $data);
+		}
 		return $this;
 	}
 
@@ -80,7 +100,7 @@ class Element extends \Collection{
 	 * @return Element current element
 	 */
 	public function setClass($value){
-		$this->attributes['class'] = $value;
+		$this->attributes['class'] = htmlentities($value);
 		return $this;
 	}
 
@@ -90,7 +110,7 @@ class Element extends \Collection{
 	 * @return Element current element 
 	 */
 	public function addClass($value){
-		$this->attributes['class'] .= ' '.$value;
+		$this->attributes['class'] .= ' '.htmlentities($value);
 		return $this;
 	}
 
@@ -101,12 +121,12 @@ class Element extends \Collection{
 	public function __toString(){
 		$tmp = '<'.$this->tag_name;
 		foreach($this->attributes as $key => $attribute){
-			$tmp .= ' '.$key.'="'.$attribute.'"';
+			$tmp .= ' '.$key.'="'.$this->$key.'"';
 		}
 		if($this->is_void_element){
 			$tmp .= '/>';
 		} else {
-			$tmp .= '>'.$this->content.'</'.$this->tag_name.'>';
+			$tmp .= '>'.$this->getAll().'</'.$this->tag_name.'>';
 		}
 		return $tmp;
 	}
