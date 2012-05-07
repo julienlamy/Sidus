@@ -31,14 +31,62 @@ class Node {
 
 	public function __construct($id = null, array $to_hydrate){
 		$property = new \Sidus\Properties\String('sd_info', 'title');
-		$property->setInput('\HTML\Email');
-		$this->addProperty();
+		$this->addProperty($property);
 		//TODO : Hydrate properties
 		//TODO : Calculate auths
 	}
 
+	public function __toString(){
+		return $this->id;
+	}
+
+	/**
+	 * This function returns the value of a property for this node.
+	 */
+	public function __get($var){
+		$var = strtolower($var);
+		$getter_name = 'get'.\Utils::camelize($var);
+		if(method_exists($this, $getter_name)){
+			return $this->$getter_name();
+		}
+		if(array_key_exists($this->properties, $var)){
+			$property = $this->properties[$var];
+			if($property->canRead($this->auths)){
+				return $property;//Or $property->get() ? <= bad for outputting to html
+			} else {
+				throw new \Sidus\PermissionException("Trying to get property: {$var} from {$this}");
+			}
+		}
+		throw new \Sidus\InexistingPropertyException("Trying to get inexisting property: {$var} from {$this}");
+	}
+
+	public function __set($var, $value){
+		$var = strtolower($var);
+		$setter_name = 'set'.\Utils::Camelize($var);
+		if(method_exists($this, $setter_name)){
+			return $this->$setter_name($value);
+		}
+		if(array_key_exists($this->properties, $var)){
+			$property = $this->properties[$var];
+			if($property->canWrite($this->auths)){
+				$property->set($value);
+			} else {
+				throw new \Sidus\PermissionException("Trying to set property: {$var} from {$this}");
+			}
+		}
+		throw new \Sidus\InexistingPropertyException("Trying to set inexisting property: {$var} from {$this}");
+	}
+
 	public function __call($name, $arguments){
-		return Core::$name($this, $arguments);
+		$name = strtolower($name);
+		if(substr($name, 0, 3) == 'get'){
+			return $this->__get(\Utils::unCamelize(substr($name, 3)));
+		}
+		if(substr($name, 0, 3) == 'set'){
+			$this->__set(\Utils::unCamelize(substr($name, 3)));
+			return $this;
+		}
+		return Core::more($this, $name, $arguments);
 	}
 
 	public function __destruct(){
@@ -157,48 +205,6 @@ class Node {
 		$query = "DELETE FROM ".implode(',', $tables)." WHERE node_id = :node_id";
 		self::$delete_statement = Database::getInstance()->prepare($query);
 		return self::$delete_statement;
-	}
-
-	public function __toString(){
-		return $this->id;
-	}
-
-	/**
-	 * This function returns the value of a property for this node.
-	 */
-	public function __get($var){
-		$var = strtolower($var);
-		$getter_name = 'get'.\Utils::camelize($var);
-		if(method_exists($this, $getter_name)){
-			return $this->$getter_name();
-		}
-		if(array_key_exists($this->properties, $var)){
-			$property = $this->properties[$var];
-			if($property->canRead($this->auths)){
-				return $property;//Or $property->get() ? <= bad for outputting to html
-			}
-			//TODO : Throw exception / Event ?
-		}
-		//TODO throw InexistingPropertyException
-		return null;
-	}
-
-	public function __set($var, $value){
-		$var = strtolower($var);
-		$setter_name = 'set'.\Utils::Camelize($var);
-		if(method_exists($this, $setter_name)){
-			return $this->$setter_name($value);
-		}
-		if(array_key_exists($this->properties, $var)){
-			$property = $this->properties[$var];
-			if($property->canWrite($this->auths)){
-				$property->set($value);
-				return;
-			}
-			//TODO : Throw exception / Event ?
-		}
-		//TODO throw InexistingPropertyException
-		return null;
 	}
 
 	protected function addProperty(propertyInterface $property){
