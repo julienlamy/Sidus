@@ -9,7 +9,7 @@ use Sidus\Nodes\Permission;
  * from Database to the end user interface.
  * All methods must check the permission set of the user before doing anything.
  */
-interface propertyInterface {
+interface PropertyInterface {
 
 	/**
 	 * The actual value in the PHP system
@@ -48,20 +48,26 @@ interface propertyInterface {
 	protected $model_name;
 
 	/**
-	 * Class of input that implements the \HTML\InputInterface
-	 * @var class
+	 * Input object that implements the \HTML\InputInterface
+	 * @var Input
 	 */
-	protected $input = '\HTML\Input';
+	protected $input;
+
+	/**
+	 * Node associated to this property
+	 * @var Node
+	 */
+	protected $node;
 
 	/**
 	 * Needed permission to read the value
-	 * @var type
+	 * @var integer
 	 */
 	protected $read_auth = Permission::READ;
 
 	/**
 	 * Needed permission to write the value
-	 * @var type
+	 * @var integer
 	 */
 	protected $write_auth = Permission::WRITE;
 
@@ -73,7 +79,7 @@ interface propertyInterface {
 	 * @param integer $pdo_type The PDO param type of the value in the DB
 	 * @param string $model_name If different from column name, the PHP name
 	 */
-	public function __constructor($table_name, $column_name, $pdo_param = \PDO::PARAM_STR, $model_name = null);
+	public function __constructor(\Sidus\Nodes\Node $node, $table_name, $column_name, $pdo_param = \PDO::PARAM_STR, $model_name = null);
 
 	/**
 	 * Return the value for PHP with correct type and no processing for display
