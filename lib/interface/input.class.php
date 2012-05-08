@@ -6,9 +6,7 @@ use \Symfony\Component\HttpFoundation\ApacheRequest;
 
 class Input extends Element {
 
-	protected $regexp = null;
-	protected $prefix = '';
-	protected static $authorized_attributes = array('id', 'class', 'style', 'title', 'dir', 'lang', 'xml:lang', 'accesskey', 'tabindex', 'onkeydown', 'onkeypress', 'onkeyup', 'onclick', 'ondblclick', 'onmousedown', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup', 'accept', 'alt', 'checked', 'disabled', 'maxlength', 'name', 'readonly', 'size', 'src', 'type', 'value', 'onblur', 'onchange', 'onfocus', 'onselect');
+	protected static $authorized_attributes = array('id', 'class', 'style', 'title', 'dir', 'lang', 'xml:lang', 'accesskey', 'tabindex', 'onkeydown', 'onkeypress', 'onkeyup', 'onclick', 'ondblclick', 'onmousedown', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup', 'accept', 'alt', 'checked', 'disabled', 'maxlength', 'name', 'readonly', 'size', 'src', 'type', 'value', 'onblur', 'onchange', 'onfocus', 'onselect', 'pattern', 'placeholder', 'autocomplete', 'autofocus');
 
 	public function __construct($name, $default_value = null){
 		parent::__construct('input');
@@ -22,8 +20,8 @@ class Input extends Element {
 	}
 
 	public function hydrateValueFromRequest($from = null){
-		$request = ApacheRequest::createFromGlobals();
-		$this->value = $request->request->get($this->name, $this->value, true);
+		$request = ApacheRequest::createFromGlobals()->request;
+		$this->value = $request->get($this->name, $this->value, true);
 	}
 
 	/**
@@ -61,18 +59,8 @@ class Input extends Element {
 	 * @param string $value
 	 * @return $this 
 	 */
-	public function setRegexp($value){
-		$this->regexp = $value;
-		return $this;
-	}
-
-	/**
-	 * set a prefix for name and id
-	 * @param type $value
-	 * @return $this 
-	 */
-	public function setPrefix($value){
-		$this->prefix = $value;
+	public function setPattern($value){
+		$this->pattern = trim($value, '/');
 		return $this;
 	}
 
@@ -81,14 +69,13 @@ class Input extends Element {
 	}
 
 	/**
-	 * Validate the input. Try to match the regexp.
+	 * Validate the input. Try to match the pattern.
 	 * @return boolean
-	 * @throws \InvalidArgumentException 
 	 */
 	public function validate(){
-		if($this->regexp){//If you have set a regexp to test input
-			$result = preg_replace($this->regexp, '', $this->value, 1); //replace by nothing
-			if($result != ''){//If there is chars left, it means the input doesn't match the regexp...
+		if($this->pattern){//If you have set a pattern to test input
+			$result = preg_replace('/'.$this->pattern.'/', '', $this->value, 1); //replace by nothing
+			if($result != ''){//If there is chars left, it means the input doesn't match the pattern...
 				$this->addClass('form_error');
 				return false;
 			}
@@ -98,6 +85,11 @@ class Input extends Element {
 
 	public function setIdFromName($name){
 		$this->id = \Utils::slugify($name, '_');
+	}
+
+	public function __toString(){
+		$this->validate();
+		return parent::__toString();
 	}
 
 }

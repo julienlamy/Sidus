@@ -15,12 +15,12 @@ class Label extends Element {
 			$this->attributes['for'] = '';
 			$this->input = $for;
 		}
-		$this->attach($content);
+		$this->add($content);
 	}
 
 	public function addInput(Input $input, $label = null){
 		$label = new \HTML\Label($label);
-		$this->attach($object);
+		$this->add($object);
 	}
 
 	public function getFor(){
@@ -28,15 +28,6 @@ class Label extends Element {
 			return $this->input->id;
 		}
 		return $this->for;
-	}
-
-	public function validate(){
-		foreach($this as $element){
-			if(method_exists($element, 'validate') && !$element->validate()){
-				return false;
-			}
-		}
-		return true;
 	}
 
 }

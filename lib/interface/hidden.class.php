@@ -2,12 +2,11 @@
 
 namespace HTML;
 
-class Submit extends Input {
+class Hidden extends Input {
 
 	public function __construct($name, $default_value = null){
 		parent::__construct($name, $default_value);
-		$this->type = 'submit';
-		unset($this->attributes['id']);
+		$this->type = 'hidden';
 	}
 
 }

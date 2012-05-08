@@ -16,8 +16,8 @@ class Form extends Element {
 
 	public function addInput(Input $input, $label = null){
 		$label = new \HTML\Label($label, $input);
-		$this->attach($label);
-		$this->attach($input);
+		$this->add($label);
+		$this->add($input);
 		return $this;
 	}
 
@@ -33,7 +33,7 @@ class Form extends Element {
 		$tmp = new Form($this->action, $this->method);
 		foreach($this as $element){
 			if(is_a($element, '\\HTML\\Input')){
-				$tmp->attach($element);
+				$tmp->add($element);
 			}
 		}
 		return $tmp;

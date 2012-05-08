@@ -34,7 +34,7 @@ class Element extends \Collection {
 		if(array_search($this->tag_name, $this::$void_elements)){
 			$this->is_void_element = true;
 		} elseif($content){
-			$this->attach($content);
+			$this->add($content);
 		}
 	}
 
@@ -94,6 +94,10 @@ class Element extends \Collection {
 		return $this;
 	}
 
+	public function add($object, $data = null){
+		return $this->attach($object, $data);
+	}
+
 	/**
 	 * Set a new class. Delete all previously added classes
 	 * @param string $value
@@ -110,7 +114,11 @@ class Element extends \Collection {
 	 * @return Element current element 
 	 */
 	public function addClass($value){
-		$this->attributes['class'] .= ' '.htmlentities($value);
+		if(!isset($this->attributes['class'])){
+			$this->attributes['class'] = htmlentities($value);
+		} else {
+			$this->attributes['class'] .= ' '.htmlentities($value);
+		}
 		return $this;
 	}
 
