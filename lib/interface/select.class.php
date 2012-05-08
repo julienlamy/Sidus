@@ -17,7 +17,7 @@ class Select extends Input{
 		$this->options = $options;
 		if($selected_index){
 			if(!array_key_exists($selected_index, $this->options)){//check if input is valid
-				trigger_error('ABoard : Wrong default value: '.$selected_index.' for select', E_USER_WARNING);
+				throw new \UnexpectedValueException("Wrong default value: {$selected_index} for select");
 			}
 		}
 		$this->selected_index = $selected_index;
