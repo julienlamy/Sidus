@@ -14,7 +14,7 @@ if(!defined('PROJECT_REAL_PATH')){
 	define('PROJECT_REAL_PATH', trim(dirname($_SERVER['SCRIPT_FILENAME']),DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
 }
 
-require_once REAL_PATH.'lib/core/loader.class.php';
+require_once REAL_PATH.'lib'.DIRECTORY_SEPARATOR.'core'.DIRECTORY_SEPARATOR.'loader.class.php';
 Loader::addExtension('.php');
 Loader::addExtension('.class.php');
 Loader::addExtension('.interface.php');
