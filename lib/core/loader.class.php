@@ -16,11 +16,11 @@ abstract class Loader{
 	 * an absolute path.
 	 * @param string $path 
 	 */
-	public static function addPath($path){
-		if(substr($path, 0 ,1) != DIRECTORY_SEPARATOR){
-			$path = REAL_PATH.$path;
+	public static function addPath($include_path){
+		if(substr($include_path, 0 ,1) != DIRECTORY_SEPARATOR && substr($include_path, 1, 1) != ':'){
+			$include_path = REAL_PATH.$include_path;
 		}
-		self::$paths[] = DIRECTORY_SEPARATOR.trim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+		self::$paths[] = rtrim($include_path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
 	}
 	
 	/**
@@ -39,7 +39,7 @@ abstract class Loader{
 	 * @param string $include_path 
 	 */
 	public static function register($class_name, $include_path = null){
-		if(substr($include_path, 0 ,1) != DIRECTORY_SEPARATOR){
+		if(substr($include_path, 0 ,1) != DIRECTORY_SEPARATOR && substr($include_path, 1, 1) != ':'){
 			$include_path = REAL_PATH.$include_path;
 		}
 		self::$classes[$class_name] = $include_path;
