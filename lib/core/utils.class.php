@@ -9,7 +9,7 @@ class Utils{
 			$text = iconv('UTF-8', 'ASCII//TRANSLIT', $text); // transliterate
 		}
 		$text = strtolower($text);
-		$text = preg_replace('~[^-\w]+~', '', $text); // remove unwanted characters
+		$text = preg_replace('~[^'.preg_quote($delimiter).'\w]+~', '', $text); // remove unwanted characters
 		if(empty($text)){
 			return 'n-a';
 		}
